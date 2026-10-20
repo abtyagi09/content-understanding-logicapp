@@ -1,0 +1,250 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "triggers": {
+      "When_a_blob_is_added_or_modified": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "path": "/{folder}/{name}",
+            "containerName": "documents"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "azureblob",
+            "operationId": "whenPathIsUpdated",
+            "serviceProviderId": "/serviceProviders/AzureBlob"
+          }
+        },
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "metadata": {
+          "operationMetadataId": "d4a7ed3e-1584-4d7a-8793-9de8d3d7bca2"
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "outputs"
+            ]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Read_blob_content": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "containerName": "documents",
+            "blobName": "@triggerBody()?['Path']"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "azureblob",
+            "operationId": "readBlobContent",
+            "serviceProviderId": "/serviceProviders/AzureBlob"
+          }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "outputs"
+            ]
+          }
+        }
+      },
+      "Create_Content_Understanding_analysis": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "@{appsetting('CONTENT_UNDERSTANDING_ENDPOINT')}/contentunderstanding/analyzers/@{appsetting('CONTENT_UNDERSTANDING_MODEL')}:analyze?api-version=2025-11-01",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://cognitiveservices.azure.com/"
+          },
+          "body": {
+            "inputs": [
+              {
+                "data": "@{base64(body('Read_blob_content'))}",
+                "name": "@{triggerBody()?['Name']}"
+              }
+            ]
+          }
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        },
+        "runAfter": {
+          "Read_blob_content": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Initialize_analysis_state": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "analysisStatus",
+              "type": "string",
+              "value": "NotStarted"
+            },
+            {
+              "name": "analysisResult",
+              "type": "object",
+              "value": {}
+            }
+          ]
+        },
+        "runAfter": {
+          "Create_Content_Understanding_analysis": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Poll_for_analysis_result": {
+        "type": "Until",
+        "expression": "@or(equals(variables('analysisStatus'), 'Succeeded'), equals(variables('analysisStatus'), 'Failed'))",
+        "limit": {
+          "count": 300,
+          "timeout": "PT10M"
+        },
+        "actions": {
+          "Get_analysis_result": {
+            "type": "Http",
+            "inputs": {
+              "method": "GET",
+              "uri": "@{outputs('Create_Content_Understanding_analysis')?['headers']?['operation-location']}",
+              "authentication": {
+                "type": "ManagedServiceIdentity",
+                "audience": "https://cognitiveservices.azure.com/"
+              }
+            },
+            "runAfter": {},
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Set_analysis_result": {
+            "type": "SetVariable",
+            "inputs": {
+              "name": "analysisResult",
+              "value": "@body('Get_analysis_result')"
+            },
+            "runAfter": {
+              "Get_analysis_result": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Set_analysis_status": {
+            "type": "SetVariable",
+            "inputs": {
+              "name": "analysisStatus",
+              "value": "@body('Get_analysis_result')?['status']"
+            },
+            "runAfter": {
+              "Set_analysis_result": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Wait_before_next_poll": {
+            "type": "Wait",
+            "inputs": {
+              "interval": {
+                "count": 2,
+                "unit": "Second"
+              }
+            },
+            "runAfter": {
+              "Set_analysis_status": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Initialize_analysis_state": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Fail_when_analysis_is_not_succeeded": {
+        "type": "If",
+        "expression": "@not(equals(variables('analysisStatus'), 'Succeeded'))",
+        "actions": {
+          "Terminate_incomplete_analysis": {
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed"
+            },
+            "runAfter": {}
+          }
+        },
+        "else": {
+          "actions": {}
+        },
+        "runAfter": {
+          "Poll_for_analysis_result": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Store_analysis_result": {
+        "type": "Http",
+        "inputs": {
+          "method": "PUT",
+          "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/', workflow().run.name, '.json')}",
+          "headers": {
+            "Content-Type": "application/json",
+            "x-ms-blob-type": "BlockBlob",
+            "x-ms-version": "2023-11-03"
+          },
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://storage.azure.com/"
+          },
+          "body": "@variables('analysisResult')"
+        },
+        "runtimeConfiguration": {
+          "secureData": {
+            "properties": [
+              "inputs",
+              "outputs"
+            ]
+          }
+        },
+        "runAfter": {
+          "Fail_when_analysis_is_not_succeeded": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

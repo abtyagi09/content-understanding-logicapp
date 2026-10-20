@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "cuapp"
+    },
+    "location": {
+      "value": "westus3"
+    },
+    "vnetAddressPrefix": {
+      "value": "10.50.0.0/16"
+    },
+    "infraSubnetPrefix": {
+      "value": "10.50.1.0/26"
+    },
+    "jumpboxSubnetPrefix": {
+      "value": "10.50.2.0/24"
+    },
+    "privateEndpointSubnetPrefix": {
+      "value": "10.50.3.0/24"
+    },
+    "adminUsername": {
+      "value": "azureadmin"
+    },
+    "adminSshPublicKey": {
+      "value": ""
+    },
+    "vmSize": {
+      "value": "Standard_B2s"
+    },
+    "logicAppSku": {
+      "value": "WS1"
+    },
+    "logicAppPublicNetworkAccess": {
+      "value": true
+    },
+    "contentUnderstandingAnalyzer": {
+      "value": "prebuilt-invoice"
+    },
+    "deployJumpbox": {
+      "value": false
+    },
+    "azureFilesSharedKeyExceptionApproved": {
+      "value": false
+    }
+  }
+}

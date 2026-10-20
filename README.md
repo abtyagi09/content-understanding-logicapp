@@ -1,0 +1,219 @@
+# Content Understanding Logic App Deployment
+
+Reusable Azure public-cloud deployment for a private Azure Logic Apps Standard
+document-processing solution using **Azure Content Understanding in Foundry Tools**.
+The deployment provisions infrastructure and publishes the sample workflow package.
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fabtyagi09%2Fcontent-understanding-logicapp%2Fmain%2Fazuredeploy.json)
+
+The button deploys the Azure infrastructure and managed-identity assignments.
+Afterward, use the repository's **Deploy Content Understanding Logic App** GitHub
+Actions workflow to publish the workflow package and run its host health check.
+For a single local command that performs both phases, use `scripts\deploy.ps1`.
+
+## Architecture
+
+| Diagram component | Implementation |
+| --- | --- |
+| Spoke | One VNet, default `10.50.0.0/16` |
+| Infra subnet | `snet-infra`, `10.50.1.0/26`, delegated to `Microsoft.Web/serverFarms` for Logic Apps Standard integration |
+| Jump Box subnet | `snet-jumpbox`, `10.50.2.0/24`, optional private Ubuntu 22.04 VM, SSH public-key authentication |
+| PE subnet | `snet-private-endpoints`, `10.50.3.0/24`, no delegation |
+| Storage | Private StorageV2 account, private `documents` and `results` containers, Azure Files runtime content share |
+| Logic Apps | Windows Standard app, WS1 by default, system-assigned managed identity |
+| Key Vault | Private, RBAC-enabled vault with soft delete and purge protection |
+| AI Foundry | Private `AIServices` account and Content Understanding project; API-key authentication disabled |
+| Private endpoints | Four for Storage (Blob, File, Queue, Table), one for Key Vault, one for Foundry |
+| Private DNS | Eight zones linked to the spoke, including Cognitive Services, OpenAI, and Foundry Services zones |
+| Entra ID | Logic App managed identity with Storage Blob Data Owner, Queue/Table Data Contributor, Key Vault Secrets User, and Cognitive Services User at resource scope |
+| Deployment | PowerShell/Azure CLI and GitHub Actions with Microsoft Entra OIDC |
+
+Storage, Key Vault, and Foundry are PaaS resources: they are not deployed into the
+infra subnet. Their private endpoint network interfaces reside in the PE subnet.
+The infra subnet is dedicated to Logic Apps VNet integration.
+
+## Files
+
+`bicep\main.bicep` orchestrates the modules in `bicep\modules`.
+`bicep\main.bicepparam` contains safe local defaults.
+`azuredeploy.json` and `azuredeploy.parameters.json` are generated artifacts.
+`scripts\deploy.ps1` deploys infrastructure and packages/publishes the workflow.
+`scripts\package-customer.ps1` creates a clean customer ZIP excluding the POC SSH
+keys, Terraform directory, and prebuilt package.
+
+The `terraform` directory is legacy infrastructure and is **not equivalent** to
+this architecture. Do not apply it. The `.ssh` directory and existing package are
+local POC files; they are not required for deployment and must not be included in a
+customer handoff. Only SSH public keys may be used.
+
+## Deploy from PowerShell and Azure CLI
+
+Use a **new resource group**. This replacement changes names and subnet layout;
+it is not an in-place migration of the previous environment. Incremental ARM
+deployment does not delete old resources. Removing local templates does not
+remove Azure resources.
+
+Prerequisites: Azure CLI 2.48.1 or later, an authenticated Azure account, and a
+subscription/region with Logic Apps Standard and Content Understanding availability.
+The deploying identity needs permission to create the resource group and register
+providers, plus Contributor and role-assignment write permission on the target
+resource group (for example, Contributor plus Role Based Access Control Administrator).
+Required providers are Microsoft.Authorization, Microsoft.Network, Microsoft.Storage,
+Microsoft.Web, Microsoft.KeyVault, and Microsoft.CognitiveServices; Microsoft.Compute
+is also registered when the optional jump box is enabled. If subscription-level
+registration permissions aren't available, ask an administrator to register
+unregistered providers and pre-create the resource group.
+
+```powershell
+az login
+.\scripts\deploy.ps1 `
+  -SubscriptionId <subscription-id> `
+  -ResourceGroupName rg-content-understanding `
+  -Location westus3 `
+  -NamePrefix cuapp
+```
+
+The script creates the resource group if needed, registers required resource
+providers, shows a deployment preview, deploys Bicep, packages the workflow files
+without local settings, and deploys the package using Microsoft Entra-authenticated
+Azure CLI. It prompts before deployment; pass `-Approve` for noninteractive use.
+`-WhatIfOnly` previews the deployment without creating Azure resources beyond the
+resource group/provider registration. Names use a lowercase alphanumeric prefix of
+3-7 characters. Use a new resource group and choose non-overlapping VNet CIDRs;
+pass `-VnetAddressPrefix`, `-InfraSubnetPrefix`, `-JumpboxSubnetPrefix`, and
+`-PrivateEndpointSubnetPrefix` when the defaults conflict with customer networks.
+The script also accepts `-LogicAppSku` and `-ContentUnderstandingAnalyzer`.
+
+The private jump box is optional and off by default. To enable it, provide a public
+key file (never a private key):
+
+```powershell
+.\scripts\deploy.ps1 `
+  -SubscriptionId <subscription-id> `
+  -ResourceGroupName rg-content-understanding `
+  -Location westus3 `
+  -DeployJumpbox `
+  -SshPublicKeyPath "$HOME\.ssh\id_ed25519.pub"
+```
+
+If the customer's Storage policy denies account-key access, the Logic Apps Standard
+Azure Files content share requires an explicitly approved exception. Only after that
+approval, add `-ApproveAzureFilesSharedKeyException`; this applies
+`SecurityControl=Ignore` to the Storage account only. The exception is not enabled
+by default and is not appropriate for subscriptions that don't use this policy.
+
+## GitHub deployment
+
+Configure a Microsoft Entra application or user-assigned identity with a federated
+credential matching the repository and permitted branch. Grant it permissions to
+create the resource group and register providers, plus resource deployment and
+role-assignment permissions described above. Prefer pre-created resource groups and
+pre-registered providers when subscription-wide privileges are not appropriate.
+
+Set repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and
+`AZURE_SUBSCRIPTION_ID`. Run `.github\workflows\deploy-bicep.yml` manually and supply
+the resource group, region, and prefix. Set the `JUMPBOX_SSH_PUBLIC_KEY` repository
+secret only if enabling the optional jump box. The workflow accepts the analyzer,
+plan SKU, and VNet/subnet CIDRs as deployment inputs. It previews and deploys
+infrastructure, then deploys the Logic App package using Azure CLI and OIDC; it
+does not use a publish profile or client secret.
+
+## Network and authentication boundaries
+
+- Storage, Key Vault, and Foundry deny public data-plane access. Access requires
+  private network connectivity, private DNS resolution, and appropriate authorization.
+- The Logic App and SCM HTTPS endpoints are public by default so hosted deployment
+  agents can publish the workflow package. This template does not configure
+  end-user Entra authentication or an inbound private endpoint. Request triggers
+  need their own authorization design; signed callback URLs are secrets. Basic
+  SCM/FTP publishing authentication is disabled; deployment uses Azure CLI with
+  Microsoft Entra authentication.
+- Setting `logicAppPublicNetworkAccess` to `false` blocks public ingress but does
+  not create a Logic App private endpoint. Add an inbound private endpoint and DNS
+  before choosing this setting if private access to workflows/SCM is required.
+- The Logic App system-assigned managed identity accesses Blob, Queue, and Table
+  Storage for the Functions host. `logicapp\connections.json` also authenticates
+  workflow Blob operations with `ManagedServiceIdentity`. Storage Blob Data Owner,
+  Storage Queue Data Contributor, and Storage Table Data Contributor are granted
+  at the storage-account scope for these uses.
+- The WS1 Workflow Service Plan still requires an Azure Files content-share
+  connection string. This is the **only** shared-key authentication exception:
+  `AzureWebJobsStorage` uses managed identity, not an account key. The Storage
+  account requests shared-key access for the content share. The optional
+  `SecurityControl=Ignore` tag is applied only when the customer explicitly approves
+  the exception. If policy blocks shared-key access and the exception is not
+  approved, the Logic App host cannot mount its content share and will not start.
+  The content share is pre-created through ARM; provisioning-time content-share
+  validation is skipped because Storage denies public access.
+  The file-share connection key is resolved during deployment and isn't emitted
+  as an output. Restrict access to app settings and rotate this connection when
+  rotating the Storage key. Content Understanding calls use the Logic App identity.
+- Private content-share routing is enabled. Private outbound traffic traverses
+  VNet integration; public extension downloads retain App Service outbound routing.
+  No custom DNS, forced tunneling, NAT gateway, or firewall is installed.
+- The jump box has no public IP and no implicit Internet egress. Use an existing
+  private connectivity path or separately provision Bastion. Its NSG permits SSH
+  only from the spoke CIDR; explicitly add your VPN/peered client ranges if needed.
+  Internet package downloads and OS updates require separately configured outbound access.
+- Key Vault is initially empty. No user, operator, or jump-box data-plane
+  permissions are assumed. Grant those separately as required.
+- These templates target Azure public cloud; Foundry and Key Vault DNS suffixes
+  are not parameterized for sovereign clouds.
+
+## Finish setup and run the sample
+
+The workflow watches the private `documents` Blob container, sends the blob bytes
+to the Content Understanding analyzer using managed identity, polls the
+asynchronous operation, then writes the full JSON analysis response to the private
+`results` container using managed identity. Document and analysis payloads are
+marked as secure workflow data and aren't exposed in run-history inputs/outputs.
+
+Before submitting documents:
+
+1. In the target subscription, deploy the model(s) supported by the selected
+   analyzer. Model availability, capacity, quota, and cost vary by region and
+   subscription; infrastructure deployment does not deploy or reserve model
+   capacity.
+2. Copy `foundry-model-defaults.example.json` to a private local file, replace its
+   aliases and deployment names with the model mapping required by the analyzer,
+   then run `scripts\configure-model-defaults.ps1` from a machine connected to the
+   VNet. The script uses Microsoft Entra authentication; the operator needs
+   permission to update Content Understanding defaults.
+3. Allow time for the Logic App managed-identity role assignments to propagate.
+4. From a machine connected to the VNet (or another approved private network path),
+   upload a test invoice to the `documents` container. The caller needs an
+   appropriate Blob data role; no human data-plane role is granted by this template.
+5. Confirm the workflow run, then retrieve its JSON result from the private
+   `results` container. Grant the intended result readers an appropriate Blob data
+   role separately; the template grants no human data-plane access.
+
+No lifecycle policy is applied to the `documents` or `results` containers. Configure
+retention and deletion to match the customer's data governance requirements.
+
+This is an extension-bundle-based Standard Logic Apps project, so the deployment
+sets `FUNCTIONS_WORKER_RUNTIME=node`. It does not package a .NET worker or
+`Microsoft.Azure.Workflows` NuGet extensions. Keep the bundle-based and
+NuGet-based project models separate. This corrects the prior template's
+`dotnet` worker setting; verify the deployed host/runtime before treating the
+reported `IDistributedCacheProvider` mismatch as resolved.
+
+## Scope and customer prerequisites
+
+This template targets Azure public cloud. It cannot guarantee deployment in every
+subscription: the selected region must support Logic Apps Standard, private
+endpoints, and Content Understanding, and the subscription must have quota/capacity.
+Azure Policy may block resource types, network settings, RBAC assignments, or the
+Azure Files shared-key requirement. Review the preview and customer policy before
+deployment. Costs include the WS1 plan, private endpoints, Storage, Key Vault, and
+Content Understanding/model usage; the jump box adds VM and disk charges.
+
+For private Logic App ingress, add the inbound endpoint/DNS and run deployment from
+a network-connected runner. The private jump box has no public IP or configured
+Internet egress; provide an approved VPN, peering, or Bastion path if you enable it.
+
+References:
+[Logic Apps with private Storage](https://learn.microsoft.com/azure/logic-apps/deploy-single-tenant-logic-apps-private-storage-account),
+[Logic Apps Standard DevOps deployment](https://learn.microsoft.com/azure/logic-apps/set-up-devops-deployment-single-tenant-azure-logic-apps),
+[Standard Logic Apps project settings](https://learn.microsoft.com/azure/logic-apps/edit-app-settings-host-settings),
+[Content Understanding model setup](https://learn.microsoft.com/azure/ai-services/content-understanding/concepts/models-deployments),
+[Content Understanding region support](https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support).

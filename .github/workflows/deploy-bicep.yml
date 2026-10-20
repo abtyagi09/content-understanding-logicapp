@@ -1,0 +1,174 @@
+name: Deploy Content Understanding Logic App
+
+on:
+  workflow_dispatch:
+    inputs:
+      namePrefix:
+        description: Lowercase alphanumeric prefix (3-7 characters)
+        required: true
+        default: cuapp
+      resourceGroup:
+        description: Existing or new resource group name
+        required: true
+        type: string
+      resourceGroupLocation:
+        description: Resource group region (Azure public cloud)
+        required: true
+        type: string
+        default: westus3
+      location:
+        description: Azure region supporting Content Understanding and WS1
+        required: true
+        type: string
+        default: westus3
+      logicAppSku:
+        description: Logic Apps Standard Workflow plan SKU
+        required: true
+        type: choice
+        options:
+          - WS1
+          - WS2
+          - WS3
+        default: WS1
+      contentUnderstandingAnalyzer:
+        description: Analyzer ID, for example prebuilt-invoice
+        required: true
+        type: string
+        default: prebuilt-invoice
+      vnetAddressPrefix:
+        description: VNet IPv4 CIDR (customize to avoid overlap)
+        required: true
+        type: string
+        default: 10.50.0.0/16
+      infraSubnetPrefix:
+        description: Logic App integration subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.1.0/26
+      jumpboxSubnetPrefix:
+        description: Optional jump box subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.2.0/24
+      privateEndpointSubnetPrefix:
+        description: Private endpoint subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.3.0/24
+      deployJumpbox:
+        description: Create the optional private jump box (requires JUMPBOX_SSH_PUBLIC_KEY secret)
+        required: true
+        type: boolean
+        default: false
+      approveAzureFilesSharedKeyException:
+        description: Apply SecurityControl=Ignore to Storage only (requires customer policy approval)
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: content-understanding-infrastructure
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate and deploy infrastructure
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ inputs.resourceGroup }}
+          RESOURCE_GROUP_LOCATION: ${{ inputs.resourceGroupLocation }}
+          NAME_PREFIX: ${{ inputs.namePrefix }}
+          LOCATION: ${{ inputs.location }}
+          LOGIC_APP_SKU: ${{ inputs.logicAppSku }}
+          ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
+          VNET_CIDR: ${{ inputs.vnetAddressPrefix }}
+          INFRA_SUBNET_CIDR: ${{ inputs.infraSubnetPrefix }}
+          JUMPBOX_SUBNET_CIDR: ${{ inputs.jumpboxSubnetPrefix }}
+          PRIVATE_ENDPOINT_SUBNET_CIDR: ${{ inputs.privateEndpointSubnetPrefix }}
+          DEPLOY_JUMPBOX: ${{ inputs.deployJumpbox }}
+          SSH_PUBLIC_KEY: ${{ secrets.JUMPBOX_SSH_PUBLIC_KEY }}
+          APPROVE_STORAGE_EXCEPTION: ${{ inputs.approveAzureFilesSharedKeyException }}
+        run: |
+          set -euo pipefail
+          [[ "$NAME_PREFIX" =~ ^[a-z0-9]{3,7}$ ]] || { echo "namePrefix must be 3-7 lowercase letters or digits"; exit 1; }
+          if [[ "$DEPLOY_JUMPBOX" == "true" && -z "$SSH_PUBLIC_KEY" ]]; then
+            echo "Set the JUMPBOX_SSH_PUBLIC_KEY repository secret to an SSH public key."
+            exit 1
+          fi
+
+          az bicep build --file bicep/main.bicep --stdout >/dev/null
+          providers=(Microsoft.Authorization Microsoft.Network Microsoft.Storage Microsoft.Web Microsoft.KeyVault Microsoft.CognitiveServices)
+          if [[ "$DEPLOY_JUMPBOX" == "true" ]]; then
+            providers+=(Microsoft.Compute)
+          fi
+          for provider in "${providers[@]}"; do
+            state=$(az provider show --namespace "$provider" --query registrationState --output tsv)
+            if [[ "$state" != "Registered" ]]; then
+              az provider register --namespace "$provider" --wait
+            fi
+          done
+
+          if [[ "$(az group exists --name "$RESOURCE_GROUP")" != "true" ]]; then
+            az group create --name "$RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
+          fi
+          params=(namePrefix="$NAME_PREFIX" location="$LOCATION" logicAppSku="$LOGIC_APP_SKU" contentUnderstandingAnalyzer="$ANALYZER" vnetAddressPrefix="$VNET_CIDR" infraSubnetPrefix="$INFRA_SUBNET_CIDR" jumpboxSubnetPrefix="$JUMPBOX_SUBNET_CIDR" privateEndpointSubnetPrefix="$PRIVATE_ENDPOINT_SUBNET_CIDR" deployJumpbox="$DEPLOY_JUMPBOX" azureFilesSharedKeyExceptionApproved="$APPROVE_STORAGE_EXCEPTION")
+          if [[ "$DEPLOY_JUMPBOX" == "true" ]]; then
+            params+=(adminSshPublicKey="$SSH_PUBLIC_KEY")
+          fi
+          az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "cu-${GITHUB_RUN_NUMBER}" \
+            --template-file bicep/main.bicep \
+            --parameters "${params[@]}"
+
+          logic_app_name=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "cu-${GITHUB_RUN_NUMBER}" \
+            --mode Incremental \
+            --template-file bicep/main.bicep \
+            --parameters "${params[@]}" \
+            --query "properties.outputs.logicAppName.value" \
+            --output tsv)
+          logic_app_url="https://${logic_app_name}.azurewebsites.net"
+
+          sleep 60
+          mkdir -p "$RUNNER_TEMP/logicapp-package"
+          cp -R logicapp/. "$RUNNER_TEMP/logicapp-package/"
+          find "$RUNNER_TEMP/logicapp-package" -type f -name local.settings.json -delete
+          (cd "$RUNNER_TEMP/logicapp-package" && zip -qr "$RUNNER_TEMP/logicapp.zip" .)
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$logic_app_name" \
+            --src-path "$RUNNER_TEMP/logicapp.zip" \
+            --type zip \
+            --async false
+
+          host_ready=false
+          for attempt in {1..20}; do
+            if status=$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$logic_app_url/"); then
+              if [[ "$status" != "503" && "$status" != "000" ]]; then
+                echo "Logic App host responded with HTTP $status"
+                host_ready=true
+                break
+              fi
+            fi
+            sleep 15
+          done
+          if [[ "$host_ready" != "true" ]]; then
+            echo "Logic App endpoint did not become healthy. Check Azure Files content-share settings, private DNS, TCP 445 reachability, and Storage policy."
+            exit 1
+          fi

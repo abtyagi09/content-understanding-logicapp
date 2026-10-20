@@ -1,0 +1,14 @@
+{
+  "serviceProviderConnections": {
+    "azureblob": {
+      "displayName": "Azure Blob",
+      "parameterValues": {
+        "authType": "ManagedServiceIdentity",
+        "blobStorageEndpoint": "@appsetting('AZURE_STORAGE_BLOB_ENDPOINT')"
+      },
+      "serviceProvider": {
+        "id": "/serviceProviders/AzureBlob"
+      }
+    }
+  }
+}

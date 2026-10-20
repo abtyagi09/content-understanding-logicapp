@@ -1,0 +1,6 @@
+{
+  "modelDeployments": {
+    "<supported-completion-model-alias>": "<completion-deployment-name>",
+    "<supported-embedding-model-alias>": "<embedding-deployment-name>"
+  }
+}

@@ -1,0 +1,6 @@
+.ssh/
+**/local.settings.json
+*.publishsettings
+*.publish.xml
+logicapp-package.zip
+customer-deployment.zip
