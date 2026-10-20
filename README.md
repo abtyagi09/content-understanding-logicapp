@@ -13,68 +13,7 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 
 ## Architecture diagram
 
-Editable source: [`architecture.excalidraw`](architecture.excalidraw), for the
-Microsoft Excalidraw editor at <https://aka.ms/excalidraw>. The Mermaid preview below
-is included for direct rendering on GitHub.
-
-```mermaid
-flowchart LR
-    caller["Customer callers and uploaders"]
-    publicIngress["Public HTTPS ingress<br/>default enabled"]
-    hostedRunner["GitHub-hosted runner<br/>public app deployment"]
-    privateRunner["VNet-connected runner<br/>private app deployment"]
-
-    subgraph vnet["Customer VNet"]
-        direction LR
-        subgraph integration["snet-infra<br/>delegated VNet integration"]
-            logicApp["Logic Apps Standard<br/>Windows WS1<br/>system-assigned identity"]
-        end
-        subgraph privateEndpoints["snet-private-endpoints"]
-            appPe["App Service PE<br/>when public access is disabled"]
-            blobPe["Blob PE"]
-            filePe["File PE"]
-            queuePe["Queue PE"]
-            tablePe["Table PE"]
-            vaultPe["Key Vault PE"]
-            foundryPe["Foundry PE<br/>when deployFoundry=true"]
-        end
-        privateDns["Private DNS zones<br/>Storage and Key Vault<br/>App Service if private<br/>Foundry if enabled"]
-    end
-
-    storage["Private Storage account<br/>documents and results<br/>Azure Files content share"]
-    keyVault["Private Key Vault"]
-    foundry["Private Foundry AIServices<br/>Content Understanding<br/>optional"]
-
-    caller -->|"HTTPS, public mode"| publicIngress --> logicApp
-    caller -->|"HTTPS, private mode"| appPe --> logicApp
-    hostedRunner -->|"ZIP/SCM when public"| logicApp
-    privateRunner -->|"ZIP/SCM when private"| appPe
-
-    logicApp -->|"VNet integration; managed identity"| blobPe
-    logicApp -->|"VNet integration; managed identity"| queuePe
-    logicApp -->|"VNet integration; managed identity"| tablePe
-    logicApp -->|"WS1 content share; shared key"| filePe
-    blobPe --> storage
-    queuePe --> storage
-    tablePe --> storage
-    filePe --> storage
-
-    logicApp -->|"Managed identity, when enabled"| foundryPe --> foundry
-    logicApp -->|"Managed identity, when needed"| vaultPe --> keyVault
-    privateDns -.-> appPe
-    privateDns -.-> blobPe
-    privateDns -.-> filePe
-    privateDns -.-> queuePe
-    privateDns -.-> tablePe
-    privateDns -.-> vaultPe
-    privateDns -.-> foundryPe
-```
-
-The Logic App private endpoint and App Service DNS zone are created only when
-`logicAppPublicNetworkAccess=false`; the Foundry resource group is created only when
-`deployFoundry=true`. The Storage policy-exception tag remains disabled by default.
-WS1 still uses shared-key authentication for its Azure Files content share; host
-Blob/Queue/Table and workflow Storage access use the Logic App's managed identity.
+![Spoke architecture diagram](spoke-architecture.png)
 
 ## Architecture
 

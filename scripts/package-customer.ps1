@@ -46,7 +46,7 @@ try {
         'azuredeploy.json',
         'azuredeploy.parameters.json',
         'foundry-model-defaults.example.json',
-        'architecture.excalidraw'
+        'spoke-architecture.png'
     )) {
         Copy-Item -LiteralPath (Join-Path $projectRoot $fileName) -Destination $stagingPath
     }
