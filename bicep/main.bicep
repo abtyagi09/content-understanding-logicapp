@@ -37,7 +37,7 @@ param deployFoundry bool = false
 ])
 param logicAppSku string = 'WS1'
 
-@description('Allow HTTPS access to the Logic App and SCM endpoint. Storage, Key Vault, and Foundry remain private.')
+@description('Allow public HTTPS ingress to the Logic App. When false, a private endpoint and private DNS zone are created.')
 param logicAppPublicNetworkAccess bool = true
 
 @description('Analyzer to use after model deployments and Content Understanding defaults have been configured.')
@@ -97,6 +97,20 @@ module logicApp './modules/logic-app.bicep' = {
   }
 }
 
+module logicAppPrivateEndpoint './modules/private-endpoint.bicep' = if (!logicAppPublicNetworkAccess) {
+  name: 'logic-app-private-endpoint'
+  params: {
+    name: '${namePrefix}-logicapp-pe'
+    location: location
+    subnetId: network.outputs.privateEndpointSubnetId
+    vnetId: network.outputs.vnetId
+    targetResourceId: logicApp.outputs.resourceId
+    groupId: 'sites'
+    privateDnsZoneNames: ['privatelink.azurewebsites.net']
+    tags: tags
+  }
+}
+
 module access './modules/access.bicep' = {
   name: 'logic-app-access'
   params: {
@@ -136,6 +150,7 @@ output vnetId string = network.outputs.vnetId
 output logicAppName string = logicApp.outputs.name
 output logicAppUrl string = logicApp.outputs.url
 output logicAppPrincipalId string = logicApp.outputs.principalId
+output logicAppPrivateEndpointName string = logicAppPrivateEndpoint.?outputs.endpointName ?? ''
 output storageAccountName string = services.outputs.storageAccountName
 output keyVaultName string = services.outputs.keyVaultName
 output foundryAccountName string = foundry.?outputs.accountName ?? ''

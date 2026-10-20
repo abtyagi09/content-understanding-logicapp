@@ -158,3 +158,4 @@ resource scmPolicy 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-
 output name string = app.name
 output url string = 'https://${app.properties.defaultHostName}'
 output principalId string = app.identity.principalId
+output resourceId string = app.id

@@ -30,6 +30,11 @@ on:
           - WS2
           - WS3
         default: WS1
+      logicAppPublicNetworkAccess:
+        description: Keep public HTTPS ingress enabled (set false to create a private endpoint)
+        required: true
+        type: boolean
+        default: true
       contentUnderstandingAnalyzer:
         description: Analyzer ID, for example prebuilt-invoice
         required: true
@@ -99,6 +104,7 @@ jobs:
           NAME_PREFIX: ${{ inputs.namePrefix }}
           LOCATION: ${{ inputs.location }}
           LOGIC_APP_SKU: ${{ inputs.logicAppSku }}
+          LOGIC_APP_PUBLIC_NETWORK_ACCESS: ${{ inputs.logicAppPublicNetworkAccess }}
           ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
           DEPLOY_FOUNDRY: ${{ inputs.deployFoundry }}
           VNET_CIDR: ${{ inputs.vnetAddressPrefix }}
@@ -134,7 +140,7 @@ jobs:
           if [[ "$(az group exists --name "$RESOURCE_GROUP")" != "true" ]]; then
             az group create --name "$RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
           fi
-          params=(namePrefix="$NAME_PREFIX" location="$LOCATION" logicAppSku="$LOGIC_APP_SKU" contentUnderstandingAnalyzer="$ANALYZER" deployFoundry="$DEPLOY_FOUNDRY" vnetAddressPrefix="$VNET_CIDR" infraSubnetPrefix="$INFRA_SUBNET_CIDR" jumpboxSubnetPrefix="$JUMPBOX_SUBNET_CIDR" privateEndpointSubnetPrefix="$PRIVATE_ENDPOINT_SUBNET_CIDR" deployJumpbox="$DEPLOY_JUMPBOX" azureFilesSharedKeyExceptionApproved="$APPROVE_STORAGE_EXCEPTION")
+          params=(namePrefix="$NAME_PREFIX" location="$LOCATION" logicAppSku="$LOGIC_APP_SKU" logicAppPublicNetworkAccess="$LOGIC_APP_PUBLIC_NETWORK_ACCESS" contentUnderstandingAnalyzer="$ANALYZER" deployFoundry="$DEPLOY_FOUNDRY" vnetAddressPrefix="$VNET_CIDR" infraSubnetPrefix="$INFRA_SUBNET_CIDR" jumpboxSubnetPrefix="$JUMPBOX_SUBNET_CIDR" privateEndpointSubnetPrefix="$PRIVATE_ENDPOINT_SUBNET_CIDR" deployJumpbox="$DEPLOY_JUMPBOX" azureFilesSharedKeyExceptionApproved="$APPROVE_STORAGE_EXCEPTION")
           if [[ "$DEPLOY_JUMPBOX" == "true" ]]; then
             params+=(adminSshPublicKey="$SSH_PUBLIC_KEY")
           fi
@@ -154,30 +160,34 @@ jobs:
             --output tsv)
           logic_app_url="https://${logic_app_name}.azurewebsites.net"
 
-          sleep 60
-          mkdir -p "$RUNNER_TEMP/logicapp-package"
-          cp -R logicapp/. "$RUNNER_TEMP/logicapp-package/"
-          find "$RUNNER_TEMP/logicapp-package" -type f -name local.settings.json -delete
-          (cd "$RUNNER_TEMP/logicapp-package" && zip -qr "$RUNNER_TEMP/logicapp.zip" .)
-          az webapp deploy \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$logic_app_name" \
-            --src-path "$RUNNER_TEMP/logicapp.zip" \
-            --type zip \
-            --async false
+          if [[ "$LOGIC_APP_PUBLIC_NETWORK_ACCESS" == "true" ]]; then
+            sleep 60
+            mkdir -p "$RUNNER_TEMP/logicapp-package"
+            cp -R logicapp/. "$RUNNER_TEMP/logicapp-package/"
+            find "$RUNNER_TEMP/logicapp-package" -type f -name local.settings.json -delete
+            (cd "$RUNNER_TEMP/logicapp-package" && zip -qr "$RUNNER_TEMP/logicapp.zip" .)
+            az webapp deploy \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$logic_app_name" \
+              --src-path "$RUNNER_TEMP/logicapp.zip" \
+              --type zip \
+              --async false
 
-          host_ready=false
-          for attempt in {1..20}; do
-            if status=$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$logic_app_url/"); then
-              if [[ "$status" != "503" && "$status" != "000" ]]; then
-                echo "Logic App host responded with HTTP $status"
-                host_ready=true
-                break
+            host_ready=false
+            for attempt in {1..20}; do
+              if status=$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$logic_app_url/"); then
+                if [[ "$status" != "503" && "$status" != "000" ]]; then
+                  echo "Logic App host responded with HTTP $status"
+                  host_ready=true
+                  break
+                fi
               fi
+              sleep 15
+            done
+            if [[ "$host_ready" != "true" ]]; then
+              echo "Logic App endpoint did not become healthy. Check Azure Files content-share settings, private DNS, TCP 445 reachability, and Storage shared-key/network settings."
+              exit 1
             fi
-            sleep 15
-          done
-          if [[ "$host_ready" != "true" ]]; then
-            echo "Logic App endpoint did not become healthy. Check Azure Files content-share settings, private DNS, TCP 445 reachability, and Storage policy."
-            exit 1
+          else
+            echo "Private ingress is enabled. The hosted runner cannot publish or probe the app; deploy and verify the workflow from a VNet-connected runner or machine."
           fi

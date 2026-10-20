@@ -57,3 +57,5 @@ resource dnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-
     }]
   }
 }
+
+output endpointName string = endpoint.name

@@ -20,11 +20,11 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 | Jump Box subnet | `snet-jumpbox`, `10.50.2.0/24`, optional private Ubuntu 22.04 VM, SSH public-key authentication |
 | PE subnet | `snet-private-endpoints`, `10.50.3.0/24`, no delegation |
 | Storage | Private StorageV2 account, private `documents` and `results` containers, Azure Files runtime content share |
-| Logic Apps | Windows Standard app, WS1 by default, system-assigned managed identity |
+| Logic Apps | Windows Standard app, WS1 by default, system-assigned managed identity; optional inbound private endpoint |
 | Key Vault | Private, RBAC-enabled vault with soft delete and purge protection |
 | AI Foundry | Optional private `AIServices` account and Content Understanding project; API-key authentication disabled |
-| Private endpoints | Four for Storage (Blob, File, Queue, Table), one for Key Vault, and one for Foundry when enabled |
-| Private DNS | Storage and Key Vault zones always; Cognitive Services, OpenAI, and Foundry Services zones only when Foundry is enabled |
+| Private endpoints | Four for Storage (Blob, File, Queue, Table), one for Key Vault, optional Logic App ingress, and one for Foundry when enabled |
+| Private DNS | Storage and Key Vault zones always; App Service zone when Logic App public access is disabled; Cognitive Services, OpenAI, and Foundry Services zones only when Foundry is enabled |
 | Entra ID | Logic App managed identity with Storage Blob Data Owner, Queue/Table Data Contributor, Key Vault Secrets User, and, when Foundry is enabled, Cognitive Services User at resource scope |
 | Deployment | PowerShell/Azure CLI and GitHub Actions with Microsoft Entra OIDC |
 
@@ -89,7 +89,12 @@ Foundry creation is off by default. Add `-DeployFoundry` to create the private F
 account, Content Understanding project/private endpoint, and Logic App role assignment.
 Without that switch, no Foundry resources or Cognitive Services role assignments are
 created, and the sample workflow has no Content Understanding endpoint configured.
-The script also accepts `-LogicAppSku` and `-ContentUnderstandingAnalyzer`.
+The script also accepts `-LogicAppSku`, `-ContentUnderstandingAnalyzer`, and
+`-DisableLogicAppPublicNetworkAccess`. Disabling public ingress automatically creates
+a Logic App private endpoint in the PE subnet, links `privatelink.azurewebsites.net`
+to the VNet, and includes the SCM DNS record. Run deployment and health checks from a
+machine or runner connected to that VNet; a public GitHub-hosted runner cannot reach
+the private app.
 
 The private jump box is optional and off by default. To enable it, provide a public
 key file (never a private key):
@@ -126,8 +131,11 @@ Set `deployFoundry` to true to create the Foundry account, project, private endp
 DNS zones, and Logic App access assignment. When false, none of those Foundry resources
 are created and the sample workflow has no Content Understanding endpoint configured.
 It previews and deploys
-infrastructure, then deploys the Logic App package using Azure CLI and OIDC; it
-does not use a publish profile or client secret.
+infrastructure, then deploys the Logic App package using Azure CLI and OIDC when public
+ingress is enabled. Set `logicAppPublicNetworkAccess` to false to add the private
+endpoint; in that mode, the hosted runner skips package deployment and host probing.
+Publish and verify from a VNet-connected runner or machine. The workflow does not use a
+publish profile or client secret.
 
 ## Network and authentication boundaries
 
@@ -135,14 +143,14 @@ does not use a publish profile or client secret.
   public data-plane access. Access requires private network connectivity, private DNS
   resolution, and appropriate authorization.
 - The Logic App and SCM HTTPS endpoints are public by default so hosted deployment
-  agents can publish the workflow package. This template does not configure
-  end-user Entra authentication or an inbound private endpoint. Request triggers
-  need their own authorization design; signed callback URLs are secrets. Basic
+  agents can publish the workflow package. When `logicAppPublicNetworkAccess` is false,
+  the template disables public access and creates an inbound private endpoint with a
+  VNet-linked `privatelink.azurewebsites.net` zone; its DNS zone group includes the
+  app and SCM records. Private callers and deployment clients need connectivity to the
+  VNet and working private DNS. Request triggers still need their own authorization
+  design; signed callback URLs are secrets. Basic
   SCM/FTP publishing authentication is disabled; deployment uses Azure CLI with
   Microsoft Entra authentication.
-- Setting `logicAppPublicNetworkAccess` to `false` blocks public ingress but does
-  not create a Logic App private endpoint. Add an inbound private endpoint and DNS
-  before choosing this setting if private access to workflows/SCM is required.
 - The Logic App system-assigned managed identity accesses Blob, Queue, and Table
   Storage for the Functions host. `logicapp\connections.json` also authenticates
   workflow Blob operations with `ManagedServiceIdentity`. Storage Blob Data Owner,
@@ -231,6 +239,7 @@ Internet egress; provide an approved VPN, peering, or Bastion path if you enable
 
 References:
 [Logic Apps with private Storage](https://learn.microsoft.com/azure/logic-apps/deploy-single-tenant-logic-apps-private-storage-account),
+[Logic Apps with private endpoints](https://learn.microsoft.com/azure/logic-apps/secure-single-tenant-workflow-virtual-network-private-endpoint),
 [Logic Apps Standard DevOps deployment](https://learn.microsoft.com/azure/logic-apps/set-up-devops-deployment-single-tenant-azure-logic-apps),
 [Standard Logic Apps project settings](https://learn.microsoft.com/azure/logic-apps/edit-app-settings-host-settings),
 [Content Understanding model setup](https://learn.microsoft.com/azure/ai-services/content-understanding/concepts/models-deployments),

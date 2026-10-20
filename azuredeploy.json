@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "15317433393842899926"
+      "templateHash": "13903197877468787990"
     }
   },
   "parameters": {
@@ -92,7 +92,7 @@
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Allow HTTPS access to the Logic App and SCM endpoint. Storage, Key Vault, and Foundry remain private."
+        "description": "Allow public HTTPS ingress to the Logic App. When false, a private endpoint and private DNS zone are created."
       }
     },
     "contentUnderstandingAnalyzer": {
@@ -331,7 +331,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "1839685092874519110"
+              "templateHash": "6629783026722272629"
             }
           },
           "parameters": {
@@ -513,7 +513,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "7994723294139899879"
+                      "templateHash": "13551994804878358641"
                     }
                   },
                   "parameters": {
@@ -619,7 +619,13 @@
                         "zones"
                       ]
                     }
-                  ]
+                  ],
+                  "outputs": {
+                    "endpointName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    }
+                  }
                 }
               },
               "dependsOn": [
@@ -670,7 +676,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "7994723294139899879"
+                      "templateHash": "13551994804878358641"
                     }
                   },
                   "parameters": {
@@ -776,7 +782,13 @@
                         "zones"
                       ]
                     }
-                  ]
+                  ],
+                  "outputs": {
+                    "endpointName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    }
+                  }
                 }
               },
               "dependsOn": [
@@ -860,7 +872,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3159032445847407042"
+              "templateHash": "12080675359294068254"
             }
           },
           "parameters": {
@@ -1062,6 +1074,10 @@
             "principalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.Web/sites', format('{0}-logic-{1}', parameters('namePrefix'), parameters('suffix'))), '2024-04-01', 'full').identity.principalId]"
+            },
+            "resourceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', format('{0}-logic-{1}', parameters('namePrefix'), parameters('suffix')))]"
             }
           }
         }
@@ -1069,6 +1085,171 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'spoke-network')]",
         "[resourceId('Microsoft.Resources/deployments', 'private-services')]"
+      ]
+    },
+    {
+      "condition": "[not(parameters('logicAppPublicNetworkAccess'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "logic-app-private-endpoint",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[format('{0}-logicapp-pe', parameters('namePrefix'))]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'spoke-network'), '2022-09-01').outputs.privateEndpointSubnetId.value]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'spoke-network'), '2022-09-01').outputs.vnetId.value]"
+          },
+          "targetResourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'logic-app-standard'), '2022-09-01').outputs.resourceId.value]"
+          },
+          "groupId": {
+            "value": "sites"
+          },
+          "privateDnsZoneNames": {
+            "value": [
+              "privatelink.azurewebsites.net"
+            ]
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "13551994804878358641"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "subnetId": {
+              "type": "string"
+            },
+            "vnetId": {
+              "type": "string"
+            },
+            "targetResourceId": {
+              "type": "string"
+            },
+            "groupId": {
+              "type": "string"
+            },
+            "privateDnsZoneNames": {
+              "type": "array"
+            },
+            "tags": {
+              "type": "object"
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "zones",
+                "count": "[length(parameters('privateDnsZoneNames'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('privateDnsZoneNames')[copyIndex()]]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "copy": {
+                "name": "links",
+                "count": "[length(parameters('privateDnsZoneNames'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('privateDnsZoneNames')[copyIndex()], format('{0}-vnet-link', parameters('name')))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex()])]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('subnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-connection', parameters('name'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('targetResourceId')]",
+                      "groupIds": [
+                        "[parameters('groupId')]"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "privateDnsZoneConfigs",
+                    "count": "[length(parameters('privateDnsZoneNames'))]",
+                    "input": {
+                      "name": "[format('zone-{0}', copyIndex('privateDnsZoneConfigs'))]",
+                      "properties": {
+                        "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneNames')[copyIndex('privateDnsZoneConfigs')])]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]",
+                "zones"
+              ]
+            }
+          ],
+          "outputs": {
+            "endpointName": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'logic-app-standard')]",
+        "[resourceId('Microsoft.Resources/deployments', 'spoke-network')]"
       ]
     },
     {
@@ -1205,7 +1386,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "1831637088376232676"
+              "templateHash": "3408954640299643266"
             }
           },
           "parameters": {
@@ -1333,7 +1514,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "7994723294139899879"
+                      "templateHash": "13551994804878358641"
                     }
                   },
                   "parameters": {
@@ -1439,7 +1620,13 @@
                         "zones"
                       ]
                     }
-                  ]
+                  ],
+                  "outputs": {
+                    "endpointName": {
+                      "type": "string",
+                      "value": "[parameters('name')]"
+                    }
+                  }
                 }
               },
               "dependsOn": [
@@ -1653,6 +1840,10 @@
     "logicAppPrincipalId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'logic-app-standard'), '2022-09-01').outputs.principalId.value]"
+    },
+    "logicAppPrivateEndpointName": {
+      "type": "string",
+      "value": "[coalesce(tryGet(if(not(parameters('logicAppPublicNetworkAccess')), reference(resourceId('Microsoft.Resources/deployments', 'logic-app-private-endpoint'), '2022-09-01'), null()), 'outputs', 'endpointName', 'value'), '')]"
     },
     "storageAccountName": {
       "type": "string",

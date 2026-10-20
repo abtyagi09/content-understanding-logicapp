@@ -15,6 +15,8 @@ param(
     [ValidateSet('WS1', 'WS2', 'WS3')]
     [string]$LogicAppSku = 'WS1',
 
+    [switch]$DisableLogicAppPublicNetworkAccess,
+
     [string]$ContentUnderstandingAnalyzer = 'prebuilt-invoice',
 
     [switch]$DeployFoundry,
@@ -135,10 +137,12 @@ if ($resourceGroupExists -ne 'true') {
 }
 
 $deploymentName = 'cu-' + (Get-Date -Format 'yyyyMMddHHmmss')
+$logicAppPublicNetworkAccess = (-not $DisableLogicAppPublicNetworkAccess.IsPresent).ToString().ToLowerInvariant()
 $parameters = @(
     "namePrefix=$NamePrefix",
     "location=$Location",
     "logicAppSku=$LogicAppSku",
+    "logicAppPublicNetworkAccess=$logicAppPublicNetworkAccess",
     "contentUnderstandingAnalyzer=$ContentUnderstandingAnalyzer",
     "deployFoundry=$($DeployFoundry.IsPresent.ToString().ToLowerInvariant())",
     "vnetAddressPrefix=$VnetAddressPrefix",
@@ -247,13 +251,16 @@ finally {
     $httpClient.Dispose()
 }
 if (-not $hostReady) {
-    throw "The Logic App endpoint did not become healthy (last response: $lastStatusCode). Check WEBSITE_CONTENTAZUREFILECONNECTIONSTRING, WEBSITE_CONTENTSHARE, private DNS, TCP 445 reachability, and the Storage policy exception."
+    throw "The Logic App endpoint did not become healthy (last response: $lastStatusCode). Check WEBSITE_CONTENTAZUREFILECONNECTIONSTRING, WEBSITE_CONTENTSHARE, private DNS, TCP 445 reachability, and Storage shared-key/network settings."
 }
 
 Write-Host ''
 Write-Host "Logic App: $logicAppName"
 Write-Host "Endpoint:  $logicAppUrl"
 Write-Host "Storage:   $($outputs.storageAccountName.value)"
+if ($outputs.logicAppPrivateEndpointName.value) {
+    Write-Host "Private endpoint: $($outputs.logicAppPrivateEndpointName.value)"
+}
 if ($outputs.foundryAccountName.value) {
     Write-Host "Foundry:   $($outputs.foundryAccountName.value)"
 }
