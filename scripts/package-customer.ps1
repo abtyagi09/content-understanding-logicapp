@@ -45,7 +45,8 @@ try {
         '.gitignore',
         'azuredeploy.json',
         'azuredeploy.parameters.json',
-        'foundry-model-defaults.example.json'
+        'foundry-model-defaults.example.json',
+        'architecture.excalidraw'
     )) {
         Copy-Item -LiteralPath (Join-Path $projectRoot $fileName) -Destination $stagingPath
     }

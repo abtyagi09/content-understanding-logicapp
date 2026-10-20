@@ -13,6 +13,10 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 
 ## Architecture diagram
 
+Editable source: [`architecture.excalidraw`](architecture.excalidraw), for the
+Microsoft Excalidraw editor at <https://aka.ms/excalidraw>. The Mermaid preview below
+is included for direct rendering on GitHub.
+
 ```mermaid
 flowchart LR
     caller["Customer callers and uploaders"]
