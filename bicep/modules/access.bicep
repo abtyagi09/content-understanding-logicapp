@@ -1,7 +1,6 @@
 param principalId string
 param storageAccountName string
 param keyVaultName string
-param foundryAccountName string
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageAccountName
@@ -9,10 +8,6 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
-}
-
-resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
-  name: foundryAccountName
 }
 
 resource blobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -52,15 +47,5 @@ resource secretAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalId: principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-  }
-}
-
-resource foundryAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(foundry.id, principalId, 'cognitive-services-user')
-  scope: foundry
-  properties: {
-    principalId: principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
   }
 }

@@ -1,7 +1,7 @@
 # Content Understanding Logic App Deployment
 
 Reusable Azure public-cloud deployment for a private Azure Logic Apps Standard
-document-processing solution using **Azure Content Understanding in Foundry Tools**.
+document-processing solution with optional **Azure Content Understanding in Foundry Tools**.
 The deployment provisions infrastructure and publishes the sample workflow package.
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fabtyagi09%2Fcontent-understanding-logicapp%2Fmain%2Fazuredeploy.json)
@@ -22,10 +22,10 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 | Storage | Private StorageV2 account, private `documents` and `results` containers, Azure Files runtime content share |
 | Logic Apps | Windows Standard app, WS1 by default, system-assigned managed identity |
 | Key Vault | Private, RBAC-enabled vault with soft delete and purge protection |
-| AI Foundry | Private `AIServices` account and Content Understanding project; API-key authentication disabled |
-| Private endpoints | Four for Storage (Blob, File, Queue, Table), one for Key Vault, one for Foundry |
-| Private DNS | Eight zones linked to the spoke, including Cognitive Services, OpenAI, and Foundry Services zones |
-| Entra ID | Logic App managed identity with Storage Blob Data Owner, Queue/Table Data Contributor, Key Vault Secrets User, and Cognitive Services User at resource scope |
+| AI Foundry | Optional private `AIServices` account and Content Understanding project; API-key authentication disabled |
+| Private endpoints | Four for Storage (Blob, File, Queue, Table), one for Key Vault, and one for Foundry when enabled |
+| Private DNS | Storage and Key Vault zones always; Cognitive Services, OpenAI, and Foundry Services zones only when Foundry is enabled |
+| Entra ID | Logic App managed identity with Storage Blob Data Owner, Queue/Table Data Contributor, Key Vault Secrets User, and, when Foundry is enabled, Cognitive Services User at resource scope |
 | Deployment | PowerShell/Azure CLI and GitHub Actions with Microsoft Entra OIDC |
 
 Storage, Key Vault, and Foundry are PaaS resources: they are not deployed into the
@@ -54,13 +54,15 @@ deployment does not delete old resources. Removing local templates does not
 remove Azure resources.
 
 Prerequisites: Azure CLI 2.48.1 or later, an authenticated Azure account, and a
-subscription/region with Logic Apps Standard and Content Understanding availability.
+subscription/region with Logic Apps Standard availability. Enable Foundry only in a
+subscription/region that supports Content Understanding and has the required capacity.
 The deploying identity needs permission to create the resource group and register
 providers, plus Contributor and role-assignment write permission on the target
 resource group (for example, Contributor plus Role Based Access Control Administrator).
 Required providers are Microsoft.Authorization, Microsoft.Network, Microsoft.Storage,
-Microsoft.Web, Microsoft.KeyVault, and Microsoft.CognitiveServices; Microsoft.Compute
-is also registered when the optional jump box is enabled. If subscription-level
+Microsoft.Web, and Microsoft.KeyVault. Microsoft.CognitiveServices is registered only
+when Foundry is enabled; Microsoft.Compute is registered only when the optional jump
+box is enabled. If subscription-level
 registration permissions aren't available, ask an administrator to register
 unregistered providers and pre-create the resource group.
 
@@ -70,7 +72,8 @@ az login
   -SubscriptionId <subscription-id> `
   -ResourceGroupName rg-content-understanding `
   -Location westus3 `
-  -NamePrefix cuapp
+  -NamePrefix cuapp `
+  -DeployFoundry
 ```
 
 The script creates the resource group if needed, registers required resource
@@ -82,6 +85,10 @@ resource group/provider registration. Names use a lowercase alphanumeric prefix 
 3-7 characters. Use a new resource group and choose non-overlapping VNet CIDRs;
 pass `-VnetAddressPrefix`, `-InfraSubnetPrefix`, `-JumpboxSubnetPrefix`, and
 `-PrivateEndpointSubnetPrefix` when the defaults conflict with customer networks.
+Foundry creation is off by default. Add `-DeployFoundry` to create the private Foundry
+account, Content Understanding project/private endpoint, and Logic App role assignment.
+Without that switch, no Foundry resources or Cognitive Services role assignments are
+created, and the sample workflow has no Content Understanding endpoint configured.
 The script also accepts `-LogicAppSku` and `-ContentUnderstandingAnalyzer`.
 
 The private jump box is optional and off by default. To enable it, provide a public
@@ -114,14 +121,19 @@ Set repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and
 `AZURE_SUBSCRIPTION_ID`. Run `.github\workflows\deploy-bicep.yml` manually and supply
 the resource group, region, and prefix. Set the `JUMPBOX_SSH_PUBLIC_KEY` repository
 secret only if enabling the optional jump box. The workflow accepts the analyzer,
-plan SKU, and VNet/subnet CIDRs as deployment inputs. It previews and deploys
+plan SKU, `deployFoundry` (false by default), and VNet/subnet CIDRs as deployment inputs.
+Set `deployFoundry` to true to create the Foundry account, project, private endpoint,
+DNS zones, and Logic App access assignment. When false, none of those Foundry resources
+are created and the sample workflow has no Content Understanding endpoint configured.
+It previews and deploys
 infrastructure, then deploys the Logic App package using Azure CLI and OIDC; it
 does not use a publish profile or client secret.
 
 ## Network and authentication boundaries
 
-- Storage, Key Vault, and Foundry deny public data-plane access. Access requires
-  private network connectivity, private DNS resolution, and appropriate authorization.
+- Storage and Key Vault deny public data-plane access. When enabled, Foundry also denies
+  public data-plane access. Access requires private network connectivity, private DNS
+  resolution, and appropriate authorization.
 - The Logic App and SCM HTTPS endpoints are public by default so hosted deployment
   agents can publish the workflow package. This template does not configure
   end-user Entra authentication or an inbound private endpoint. Request triggers

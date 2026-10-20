@@ -43,6 +43,9 @@
     },
     "azureFilesSharedKeyExceptionApproved": {
       "value": false
+    },
+    "deployFoundry": {
+      "value": false
     }
   }
 }

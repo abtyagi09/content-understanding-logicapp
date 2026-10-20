@@ -5,7 +5,7 @@ targetScope = 'resourceGroup'
 @maxLength(7)
 param namePrefix string = 'cuapp'
 
-@description('Region for the spoke, Logic Apps, and Foundry. Must support Content Understanding and WS1.')
+@description('Region for the spoke and Logic Apps; when deployFoundry is true it must also support Content Understanding.')
 param location string = 'westus3'
 
 param vnetAddressPrefix string = '10.50.0.0/16'
@@ -26,6 +26,9 @@ param deployJumpbox bool = false
 
 @description('Apply the SecurityControl=Ignore tag to the Storage account only. Use only when the customer has approved this policy exception.')
 param azureFilesSharedKeyExceptionApproved bool = false
+
+@description('Create the private Azure AI Foundry account, Content Understanding project, endpoint, and role assignment.')
+param deployFoundry bool = false
 
 @allowed([
   'WS1'
@@ -84,7 +87,9 @@ module logicApp './modules/logic-app.bicep' = {
     integrationSubnetId: network.outputs.infraSubnetId
     storageAccountName: services.outputs.storageAccountName
     contentShareName: services.outputs.contentShareName
-    contentUnderstandingEndpoint: services.outputs.contentUnderstandingEndpoint
+    contentUnderstandingEndpoint: deployFoundry
+      ? 'https://${namePrefix}-ai-${suffix}.cognitiveservices.azure.com'
+      : ''
     contentUnderstandingAnalyzer: contentUnderstandingAnalyzer
     keyVaultUri: services.outputs.keyVaultUri
     publicNetworkAccess: logicAppPublicNetworkAccess
@@ -98,7 +103,19 @@ module access './modules/access.bicep' = {
     principalId: logicApp.outputs.principalId
     storageAccountName: services.outputs.storageAccountName
     keyVaultName: services.outputs.keyVaultName
-    foundryAccountName: services.outputs.foundryAccountName
+  }
+}
+
+module foundry './modules/foundry.bicep' = if (deployFoundry) {
+  name: 'private-foundry'
+  params: {
+    namePrefix: namePrefix
+    suffix: suffix
+    location: location
+    vnetId: network.outputs.vnetId
+    privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
+    principalId: logicApp.outputs.principalId
+    tags: tags
   }
 }
 
@@ -121,8 +138,8 @@ output logicAppUrl string = logicApp.outputs.url
 output logicAppPrincipalId string = logicApp.outputs.principalId
 output storageAccountName string = services.outputs.storageAccountName
 output keyVaultName string = services.outputs.keyVaultName
-output foundryAccountName string = services.outputs.foundryAccountName
-output contentUnderstandingEndpoint string = services.outputs.contentUnderstandingEndpoint
-output foundryProjectEndpoint string = services.outputs.foundryProjectEndpoint
+output foundryAccountName string = foundry.?outputs.accountName ?? ''
+output contentUnderstandingEndpoint string = foundry.?outputs.contentUnderstandingEndpoint ?? ''
+output foundryProjectEndpoint string = foundry.?outputs.projectEndpoint ?? ''
 output jumpboxName string = jumpbox.?outputs.name ?? ''
 output jumpboxPrivateIp string = jumpbox.?outputs.privateIp ?? ''

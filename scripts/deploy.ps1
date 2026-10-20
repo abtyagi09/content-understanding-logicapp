@@ -17,6 +17,8 @@ param(
 
     [string]$ContentUnderstandingAnalyzer = 'prebuilt-invoice',
 
+    [switch]$DeployFoundry,
+
     [string]$VnetAddressPrefix = '10.50.0.0/16',
 
     [string]$InfraSubnetPrefix = '10.50.1.0/26',
@@ -101,11 +103,13 @@ $providers = @(
     'Microsoft.Network',
     'Microsoft.Storage',
     'Microsoft.Web',
-    'Microsoft.KeyVault',
-    'Microsoft.CognitiveServices'
+    'Microsoft.KeyVault'
 )
 if ($DeployJumpbox) {
     $providers += 'Microsoft.Compute'
+}
+if ($DeployFoundry) {
+    $providers += 'Microsoft.CognitiveServices'
 }
 foreach ($provider in $providers) {
     $registrationState = (& az provider show --namespace $provider --query registrationState --output tsv).Trim()
@@ -136,6 +140,7 @@ $parameters = @(
     "location=$Location",
     "logicAppSku=$LogicAppSku",
     "contentUnderstandingAnalyzer=$ContentUnderstandingAnalyzer",
+    "deployFoundry=$($DeployFoundry.IsPresent.ToString().ToLowerInvariant())",
     "vnetAddressPrefix=$VnetAddressPrefix",
     "infraSubnetPrefix=$InfraSubnetPrefix",
     "jumpboxSubnetPrefix=$JumpboxSubnetPrefix",
@@ -249,7 +254,12 @@ Write-Host ''
 Write-Host "Logic App: $logicAppName"
 Write-Host "Endpoint:  $logicAppUrl"
 Write-Host "Storage:   $($outputs.storageAccountName.value)"
-Write-Host "Foundry:   $($outputs.foundryAccountName.value)"
+if ($outputs.foundryAccountName.value) {
+    Write-Host "Foundry:   $($outputs.foundryAccountName.value)"
+}
+else {
+    Write-Host 'Foundry:   not deployed (DeployFoundry was not specified)'
+}
 Write-Host ''
 Write-Warning 'Before processing documents, deploy the model(s) required by the analyzer and configure Content Understanding model defaults.'
 Write-Warning 'Upload test documents to the private documents container from a network path that can reach the Storage private endpoint.'

@@ -14,3 +14,4 @@ param logicAppPublicNetworkAccess = true
 param contentUnderstandingAnalyzer = 'prebuilt-invoice'
 param deployJumpbox = false
 param azureFilesSharedKeyExceptionApproved = false
+param deployFoundry = false

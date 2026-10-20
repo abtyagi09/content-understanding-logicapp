@@ -35,6 +35,11 @@ on:
         required: true
         type: string
         default: prebuilt-invoice
+      deployFoundry:
+        description: Create the private Azure AI Foundry account and Content Understanding project
+        required: true
+        type: boolean
+        default: false
       vnetAddressPrefix:
         description: VNet IPv4 CIDR (customize to avoid overlap)
         required: true
@@ -95,6 +100,7 @@ jobs:
           LOCATION: ${{ inputs.location }}
           LOGIC_APP_SKU: ${{ inputs.logicAppSku }}
           ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
+          DEPLOY_FOUNDRY: ${{ inputs.deployFoundry }}
           VNET_CIDR: ${{ inputs.vnetAddressPrefix }}
           INFRA_SUBNET_CIDR: ${{ inputs.infraSubnetPrefix }}
           JUMPBOX_SUBNET_CIDR: ${{ inputs.jumpboxSubnetPrefix }}
@@ -111,9 +117,12 @@ jobs:
           fi
 
           az bicep build --file bicep/main.bicep --stdout >/dev/null
-          providers=(Microsoft.Authorization Microsoft.Network Microsoft.Storage Microsoft.Web Microsoft.KeyVault Microsoft.CognitiveServices)
+          providers=(Microsoft.Authorization Microsoft.Network Microsoft.Storage Microsoft.Web Microsoft.KeyVault)
           if [[ "$DEPLOY_JUMPBOX" == "true" ]]; then
             providers+=(Microsoft.Compute)
+          fi
+          if [[ "$DEPLOY_FOUNDRY" == "true" ]]; then
+            providers+=(Microsoft.CognitiveServices)
           fi
           for provider in "${providers[@]}"; do
             state=$(az provider show --namespace "$provider" --query registrationState --output tsv)
@@ -125,7 +134,7 @@ jobs:
           if [[ "$(az group exists --name "$RESOURCE_GROUP")" != "true" ]]; then
             az group create --name "$RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
           fi
-          params=(namePrefix="$NAME_PREFIX" location="$LOCATION" logicAppSku="$LOGIC_APP_SKU" contentUnderstandingAnalyzer="$ANALYZER" vnetAddressPrefix="$VNET_CIDR" infraSubnetPrefix="$INFRA_SUBNET_CIDR" jumpboxSubnetPrefix="$JUMPBOX_SUBNET_CIDR" privateEndpointSubnetPrefix="$PRIVATE_ENDPOINT_SUBNET_CIDR" deployJumpbox="$DEPLOY_JUMPBOX" azureFilesSharedKeyExceptionApproved="$APPROVE_STORAGE_EXCEPTION")
+          params=(namePrefix="$NAME_PREFIX" location="$LOCATION" logicAppSku="$LOGIC_APP_SKU" contentUnderstandingAnalyzer="$ANALYZER" deployFoundry="$DEPLOY_FOUNDRY" vnetAddressPrefix="$VNET_CIDR" infraSubnetPrefix="$INFRA_SUBNET_CIDR" jumpboxSubnetPrefix="$JUMPBOX_SUBNET_CIDR" privateEndpointSubnetPrefix="$PRIVATE_ENDPOINT_SUBNET_CIDR" deployJumpbox="$DEPLOY_JUMPBOX" azureFilesSharedKeyExceptionApproved="$APPROVE_STORAGE_EXCEPTION")
           if [[ "$DEPLOY_JUMPBOX" == "true" ]]; then
             params+=(adminSshPublicKey="$SSH_PUBLIC_KEY")
           fi

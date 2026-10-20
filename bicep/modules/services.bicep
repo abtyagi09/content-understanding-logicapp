@@ -94,43 +94,6 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
-  name: '${namePrefix}-ai-${suffix}'
-  location: location
-  kind: 'AIServices'
-  sku: {
-    name: 'S0'
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  tags: tags
-  properties: {
-    customSubDomainName: '${namePrefix}-ai-${suffix}'
-    allowProjectManagement: true
-    disableLocalAuth: true
-    publicNetworkAccess: 'Disabled'
-    networkAcls: {
-      defaultAction: 'Deny'
-      ipRules: []
-      virtualNetworkRules: []
-    }
-  }
-}
-
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
-  parent: foundry
-  name: 'content-understanding'
-  location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    displayName: 'Content Understanding'
-    description: 'Private document processing with Logic Apps Standard.'
-  }
-}
-
 module storageEndpoints './private-endpoint.bicep' = [for service in storageServices: {
   name: 'storage-${service}-endpoint'
   params: {
@@ -159,29 +122,7 @@ module vaultEndpoint './private-endpoint.bicep' = {
   }
 }
 
-module foundryEndpoint './private-endpoint.bicep' = {
-  name: 'foundry-endpoint'
-  params: {
-    name: '${namePrefix}-foundry-pe'
-    location: location
-    subnetId: privateEndpointSubnetId
-    vnetId: vnetId
-    targetResourceId: foundry.id
-    groupId: 'account'
-    privateDnsZoneNames: [
-      'privatelink.cognitiveservices.azure.com'
-      'privatelink.openai.azure.com'
-      'privatelink.services.ai.azure.com'
-    ]
-    tags: tags
-  }
-}
-
 output storageAccountName string = storage.name
 output contentShareName string = contentShare.name
 output keyVaultName string = vault.name
 output keyVaultUri string = vault.properties.vaultUri
-output foundryAccountName string = foundry.name
-// Content Understanding uses the account endpoint, not the Foundry project API endpoint.
-output contentUnderstandingEndpoint string = 'https://${foundry.name}.cognitiveservices.azure.com'
-output foundryProjectEndpoint string = 'https://${foundry.name}.services.ai.azure.com/api/projects/${project.name}'
