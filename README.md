@@ -135,7 +135,13 @@ does not use a publish profile or client secret.
   Storage for the Functions host. `logicapp\connections.json` also authenticates
   workflow Blob operations with `ManagedServiceIdentity`. Storage Blob Data Owner,
   Storage Queue Data Contributor, and Storage Table Data Contributor are granted
-  at the storage-account scope for these uses.
+  at the storage-account scope for these uses. The host settings include both
+  `AzureWebJobsStorage__credential=managedidentity` and
+  `AzureWebJobsStorage__credentialType=managedIdentity`: the Functions host and
+  Logic Apps Edge storage provider consume different setting names. Because this
+  template uses a system-assigned identity, it does not set
+  `AzureWebJobsStorage__managedIdentityResourceId`; set that only when configuring
+  a user-assigned identity, and use that identity's full Azure resource ID.
 - The WS1 Workflow Service Plan still requires an Azure Files content-share
   connection string. This is the **only** shared-key authentication exception:
   `AzureWebJobsStorage` uses managed identity, not an account key. The Storage

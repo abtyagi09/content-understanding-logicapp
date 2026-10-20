@@ -82,6 +82,10 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
           value: 'managedidentity'
         }
         {
+          name: 'AzureWebJobsStorage__credentialType'
+          value: 'managedIdentity'
+        }
+        {
           name: 'WEBSITE_CONTENTSHARE'
           value: contentShareName
         }

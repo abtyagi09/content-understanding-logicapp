@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "970650983842686968"
+      "templateHash": "8076877342186167706"
     }
   },
   "parameters": {
@@ -1067,7 +1067,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "6771898033757079630"
+              "templateHash": "3159032445847407042"
             }
           },
           "parameters": {
@@ -1174,6 +1174,10 @@
                     {
                       "name": "AzureWebJobsStorage__credential",
                       "value": "managedidentity"
+                    },
+                    {
+                      "name": "AzureWebJobsStorage__credentialType",
+                      "value": "managedIdentity"
                     },
                     {
                       "name": "WEBSITE_CONTENTSHARE",
