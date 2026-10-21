@@ -204,6 +204,25 @@ Outlook inbox via Microsoft Graph, selects invoice-like attachments
 Understanding, and stores the JSON output in the `results` container. It marks
 processed emails as read.
 
+### Logic App configuration (required app settings)
+
+Infrastructure deployment sets the core app settings automatically. Verify these
+values in the deployed Logic App **Configuration** pane:
+
+| Setting | Purpose |
+| --- | --- |
+| `FUNCTIONS_WORKER_RUNTIME=node` | Required runtime for this extension-bundle Standard Logic App project |
+| `AZURE_STORAGE_BLOB_ENDPOINT` | Blob endpoint used by workflow actions |
+| `AZURE_STORAGE_CONTAINER_NAME=documents` | Input container for blob-trigger workflow |
+| `AZURE_STORAGE_RESULTS_CONTAINER_NAME=results` | Output container for analysis JSON |
+| `CONTENT_UNDERSTANDING_ENDPOINT` | Content Understanding endpoint URL |
+| `CONTENT_UNDERSTANDING_MODEL` | Analyzer/model name used by both workflows |
+| `OUTLOOK_MAILBOX_USER` | Mailbox UPN/email for `ProcessOutlookInvoice` workflow |
+
+For Outlook processing, set `OUTLOOK_MAILBOX_USER` before enabling
+`ProcessOutlookInvoice`, and grant the Logic App managed identity Microsoft Graph
+application permission `Mail.ReadWrite` with admin consent.
+
 Before submitting documents:
 
 1. In the target subscription, deploy the model(s) supported by the selected
