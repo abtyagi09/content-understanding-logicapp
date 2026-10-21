@@ -1,0 +1,147 @@
+name: Deploy Terraform (AVM)
+
+on:
+  workflow_dispatch:
+    inputs:
+      namePrefix:
+        description: Lowercase alphanumeric prefix (3-7 characters)
+        required: true
+        default: cuapp
+      resourceGroup:
+        description: Existing or new resource group name
+        required: true
+        type: string
+        default: rg-app0e3-avm-gha
+      resourceGroupLocation:
+        description: Resource group region (Azure public cloud)
+        required: true
+        type: string
+        default: westus3
+      location:
+        description: Azure region for resources
+        required: true
+        type: string
+        default: westus3
+      logicAppSku:
+        description: Logic Apps Standard Workflow plan SKU
+        required: true
+        type: choice
+        options:
+          - WS1
+          - WS2
+          - WS3
+        default: WS1
+      logicAppPublicNetworkAccess:
+        description: Keep public HTTPS ingress enabled (set false to create a private endpoint)
+        required: true
+        type: boolean
+        default: false
+      contentUnderstandingAnalyzer:
+        description: Analyzer ID, for example prebuilt-invoice
+        required: true
+        type: string
+        default: prebuilt-invoice
+      deployFoundry:
+        description: Create the private Azure AI Foundry account and project
+        required: true
+        type: boolean
+        default: false
+      deployJumpbox:
+        description: Create the optional private jump box (requires JUMPBOX_SSH_PUBLIC_KEY secret)
+        required: true
+        type: boolean
+        default: false
+      vnetAddressPrefix:
+        description: VNet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.0.0/16
+      infraSubnetPrefix:
+        description: Logic App integration subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.1.0/26
+      jumpboxSubnetPrefix:
+        description: Jump box subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.2.0/24
+      privateEndpointSubnetPrefix:
+        description: Private endpoint subnet IPv4 CIDR
+        required: true
+        type: string
+        default: 10.50.3.0/24
+      approveAzureFilesSharedKeyException:
+        description: Apply SecurityControl=Ignore to Storage only (requires customer policy approval)
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Deploy Terraform
+        shell: bash
+        working-directory: terraform
+        env:
+          RESOURCE_GROUP: ${{ inputs.resourceGroup }}
+          RESOURCE_GROUP_LOCATION: ${{ inputs.resourceGroupLocation }}
+          NAME_PREFIX: ${{ inputs.namePrefix }}
+          LOCATION: ${{ inputs.location }}
+          LOGIC_APP_SKU: ${{ inputs.logicAppSku }}
+          LOGIC_APP_PUBLIC_NETWORK_ACCESS: ${{ inputs.logicAppPublicNetworkAccess }}
+          ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
+          DEPLOY_FOUNDRY: ${{ inputs.deployFoundry }}
+          DEPLOY_JUMPBOX: ${{ inputs.deployJumpbox }}
+          VNET_CIDR: ${{ inputs.vnetAddressPrefix }}
+          INFRA_SUBNET_CIDR: ${{ inputs.infraSubnetPrefix }}
+          JUMPBOX_SUBNET_CIDR: ${{ inputs.jumpboxSubnetPrefix }}
+          PRIVATE_ENDPOINT_SUBNET_CIDR: ${{ inputs.privateEndpointSubnetPrefix }}
+          APPROVE_STORAGE_EXCEPTION: ${{ inputs.approveAzureFilesSharedKeyException }}
+          SSH_PUBLIC_KEY: ${{ secrets.JUMPBOX_SSH_PUBLIC_KEY }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$NAME_PREFIX" =~ ^[a-z0-9]{3,7}$ ]] || { echo "namePrefix must be 3-7 lowercase letters or digits"; exit 1; }
+          if [[ "$DEPLOY_JUMPBOX" == "true" && -z "$SSH_PUBLIC_KEY" ]]; then
+            echo "Set JUMPBOX_SSH_PUBLIC_KEY repository secret when deployJumpbox=true."
+            exit 1
+          fi
+
+          az group create --name "$RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
+
+          terraform init -input=false
+          terraform validate
+          terraform plan -input=false \
+            -var "subscription_id=$SUBSCRIPTION_ID" \
+            -var "resource_group_name=$RESOURCE_GROUP" \
+            -var "location=$LOCATION" \
+            -var "name_prefix=$NAME_PREFIX" \
+            -var "logic_app_sku=$LOGIC_APP_SKU" \
+            -var "logic_app_public_network_access=$LOGIC_APP_PUBLIC_NETWORK_ACCESS" \
+            -var "content_understanding_analyzer=$ANALYZER" \
+            -var "deploy_foundry=$DEPLOY_FOUNDRY" \
+            -var "deploy_jumpbox=$DEPLOY_JUMPBOX" \
+            -var "vnet_address_prefix=$VNET_CIDR" \
+            -var "infra_subnet_prefix=$INFRA_SUBNET_CIDR" \
+            -var "jumpbox_subnet_prefix=$JUMPBOX_SUBNET_CIDR" \
+            -var "private_endpoint_subnet_prefix=$PRIVATE_ENDPOINT_SUBNET_CIDR" \
+            -var "azure_files_shared_key_exception_approved=$APPROVE_STORAGE_EXCEPTION" \
+            -var "admin_ssh_public_key=$SSH_PUBLIC_KEY" \
+            -out=tfplan
+          terraform apply -input=false -auto-approve tfplan
