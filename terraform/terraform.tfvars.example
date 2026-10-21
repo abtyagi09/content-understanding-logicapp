@@ -1,0 +1,22 @@
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+resource_group_name  = "rg-content-understanding"
+location             = "westus3"
+name_prefix          = "cuapp"
+
+logic_app_sku                     = "WS1"
+logic_app_public_network_access   = true
+content_understanding_analyzer    = "prebuilt-invoice"
+deploy_foundry                    = false
+deploy_jumpbox                    = false
+admin_ssh_public_key              = ""
+
+vnet_address_prefix             = "10.50.0.0/16"
+infra_subnet_prefix             = "10.50.1.0/26"
+jumpbox_subnet_prefix           = "10.50.2.0/24"
+private_endpoint_subnet_prefix  = "10.50.3.0/24"
+
+azure_files_shared_key_exception_approved = false
+
+tags = {
+  environment = "dev"
+}
