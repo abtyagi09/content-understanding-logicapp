@@ -78,6 +78,12 @@ variable "deploy_foundry" {
   default     = false
 }
 
+variable "deploy_key_vault" {
+  description = "Create a private Key Vault and related DNS/role assignment resources."
+  type        = bool
+  default     = false
+}
+
 variable "deploy_jumpbox" {
   description = "Create the optional private Ubuntu jump box."
   type        = bool

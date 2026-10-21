@@ -30,7 +30,7 @@ output "storage_account_name" {
 
 output "key_vault_name" {
   description = "Name of the private Key Vault."
-  value       = module.key_vault.name
+  value       = var.deploy_key_vault ? module.key_vault[0].name : ""
 }
 
 output "foundry_account_name" {

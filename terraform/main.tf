@@ -150,6 +150,7 @@ module "storage_dns_zone" {
 }
 
 module "keyvault_dns_zone" {
+  count   = var.deploy_key_vault ? 1 : 0
   source  = "Azure/avm-res-network-privatednszone/azurerm"
   version = "0.4.3"
 
@@ -239,6 +240,7 @@ module "storage" {
 }
 
 module "key_vault" {
+  count   = var.deploy_key_vault ? 1 : 0
   source  = "Azure/avm-res-keyvault-vault/azurerm"
   version = "0.12.0"
 
@@ -267,7 +269,7 @@ module "key_vault" {
       subresource_name            = "vault"
       private_dns_zone_group_name = "default"
       private_dns_zone_resource_ids = toset([
-        module.keyvault_dns_zone.resource_id
+        module.keyvault_dns_zone[0].resource_id
       ])
     }
   }
@@ -322,7 +324,7 @@ resource "azurerm_logic_app_standard" "logic" {
     AZURE_STORAGE_BLOB_ENDPOINT          = "https://${module.storage.fqdn.blob}"
     CONTENT_UNDERSTANDING_ENDPOINT       = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL          = var.content_understanding_analyzer
-    KEY_VAULT_URI                        = module.key_vault.uri
+    KEY_VAULT_URI                        = var.deploy_key_vault ? module.key_vault[0].uri : ""
   }
 
   site_config {
@@ -476,7 +478,8 @@ resource "azurerm_role_assignment" "logic_storage_table" {
 }
 
 resource "azurerm_role_assignment" "logic_key_vault" {
-  scope                = module.key_vault.resource_id
+  count                = var.deploy_key_vault ? 1 : 0
+  scope                = module.key_vault[0].resource_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_logic_app_standard.logic.identity[0].principal_id
 }
