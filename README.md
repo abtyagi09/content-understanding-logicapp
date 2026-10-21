@@ -198,6 +198,12 @@ asynchronous operation, then writes the full JSON analysis response to the priva
 `results` container using managed identity. Document and analysis payloads are
 marked as secure workflow data and aren't exposed in run-history inputs/outputs.
 
+An additional workflow, `logicapp\ProcessOutlookInvoice\workflow.json`, polls an
+Outlook inbox via Microsoft Graph, selects invoice-like attachments
+(`invoice` in filename or `.pdf`), submits each attachment to Content
+Understanding, and stores the JSON output in the `results` container. It marks
+processed emails as read.
+
 Before submitting documents:
 
 1. In the target subscription, deploy the model(s) supported by the selected
@@ -216,6 +222,10 @@ Before submitting documents:
 5. Confirm the workflow run, then retrieve its JSON result from the private
    `results` container. Grant the intended result readers an appropriate Blob data
    role separately; the template grants no human data-plane access.
+6. For the Outlook workflow, set app setting `OUTLOOK_MAILBOX_USER` to the target
+   mailbox UPN/email, then grant Microsoft Graph application permissions to the
+   Logic App managed identity (at minimum: `Mail.ReadWrite`) and admin-consent
+   them before enabling the workflow.
 
 No lifecycle policy is applied to the `documents` or `results` containers. Configure
 retention and deletion to match the customer's data governance requirements.

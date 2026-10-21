@@ -134,6 +134,10 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
           name: 'KEY_VAULT_URI'
           value: keyVaultUri
         }
+        {
+          name: 'OUTLOOK_MAILBOX_USER'
+          value: ''
+        }
       ]
     }
   }
