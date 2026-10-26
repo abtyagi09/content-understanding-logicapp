@@ -25,6 +25,54 @@ variable "name_prefix" {
   }
 }
 
+variable "logic_app_name_override" {
+  description = "Optional explicit Logic App site name."
+  type        = string
+  default     = ""
+}
+
+variable "storage_account_name_override" {
+  description = "Optional explicit Storage account name."
+  type        = string
+  default     = ""
+}
+
+variable "user_assigned_identity_name_override" {
+  description = "Optional explicit user-assigned managed identity name."
+  type        = string
+  default     = ""
+}
+
+variable "application_insights_name_override" {
+  description = "Optional explicit Application Insights name."
+  type        = string
+  default     = ""
+}
+
+variable "existing_application_insights_id" {
+  description = "Existing Application Insights resource ID to reuse."
+  type        = string
+  default     = ""
+}
+
+variable "existing_user_assigned_identity_id" {
+  description = "Existing user-assigned managed identity resource ID to attach to the Logic App."
+  type        = string
+  default     = ""
+}
+
+variable "existing_storage_account_name" {
+  description = "Existing storage account name to reuse for Logic App host storage. When set, Terraform does not create a new storage account."
+  type        = string
+  default     = ""
+}
+
+variable "log_analytics_workspace_name_override" {
+  description = "Optional explicit Log Analytics workspace name when Terraform creates one."
+  type        = string
+  default     = ""
+}
+
 variable "vnet_address_prefix" {
   description = "IPv4 address space for the spoke VNet."
   type        = string
@@ -60,10 +108,58 @@ variable "logic_app_sku" {
   }
 }
 
+variable "existing_service_plan_id" {
+  description = "Existing App Service plan resource ID. When set, Terraform reuses it instead of creating a new plan."
+  type        = string
+  default     = ""
+}
+
+variable "existing_vnet_id" {
+  description = "Existing virtual network resource ID used for DNS links when reusing existing subnets."
+  type        = string
+  default     = ""
+}
+
+variable "existing_infra_subnet_id" {
+  description = "Existing subnet resource ID for Logic App VNet integration. When set with existing_private_endpoint_subnet_id, no new VNet is created."
+  type        = string
+  default     = ""
+}
+
+variable "existing_private_endpoint_subnet_id" {
+  description = "Existing subnet resource ID for private endpoints. When set with existing_infra_subnet_id, no new VNet is created."
+  type        = string
+  default     = ""
+}
+
+variable "existing_jumpbox_subnet_id" {
+  description = "Existing subnet resource ID for jump box NIC when reusing an existing VNet."
+  type        = string
+  default     = ""
+}
+
+variable "existing_logicapp_private_dns_zone_id" {
+  description = "Existing privatelink.azurewebsites.net private DNS zone resource ID. When set, Terraform reuses it."
+  type        = string
+  default     = ""
+}
+
+variable "existing_storage_private_dns_zone_ids" {
+  description = "Existing storage private DNS zone IDs keyed by subresource (blob,file,queue,table). When all are provided, Terraform reuses them."
+  type        = map(string)
+  default     = {}
+}
+
 variable "logic_app_public_network_access" {
   description = "Keep public HTTPS ingress enabled. Set false to create a Logic App private endpoint and private App Service DNS zone."
   type        = bool
   default     = true
+}
+
+variable "create_logic_app_private_endpoint" {
+  description = "Create a private endpoint for the Logic App when public network access is disabled."
+  type        = bool
+  default     = false
 }
 
 variable "content_understanding_analyzer" {
@@ -115,6 +211,35 @@ variable "azure_files_shared_key_exception_approved" {
   default     = false
 }
 
+variable "storage_network_default_action" {
+  description = "Storage network rules default action."
+  type        = string
+  default     = "Deny"
+
+  validation {
+    condition     = contains(["Allow", "Deny"], var.storage_network_default_action)
+    error_message = "storage_network_default_action must be Allow or Deny."
+  }
+}
+
+variable "content_share_name" {
+  description = "Azure Files share name used by the Logic App host."
+  type        = string
+  default     = "logicapp-content"
+}
+
+variable "content_share_quota_gb" {
+  description = "Azure Files share quota in GiB."
+  type        = number
+  default     = 100
+}
+
+variable "existing_log_analytics_workspace_id" {
+  description = "Existing Log Analytics workspace resource ID. When set, Terraform uses this workspace for Application Insights."
+  type        = string
+  default     = ""
+}
+
 variable "storage_dns_suffix" {
   description = "Storage DNS suffix for the selected Azure cloud."
   type        = string
@@ -125,4 +250,10 @@ variable "tags" {
   description = "Additional resource tags."
   type        = map(string)
   default     = {}
+}
+
+variable "create_data_plane_role_assignments" {
+  description = "Create role assignments for Logic App and user-assigned identity."
+  type        = bool
+  default     = false
 }

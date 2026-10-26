@@ -20,12 +20,12 @@ output "logic_app_principal_id" {
 
 output "logic_app_private_endpoint_name" {
   description = "Private endpoint name for inbound Logic App access when public ingress is disabled."
-  value       = var.logic_app_public_network_access ? "" : module.logic_app_private_endpoint[0].name
+  value       = var.logic_app_public_network_access || !var.create_logic_app_private_endpoint ? "" : module.logic_app_private_endpoint[0].name
 }
 
 output "storage_account_name" {
   description = "Name of the private Storage account."
-  value       = module.storage.name
+  value       = local.storage_account_name
 }
 
 output "logic_app_user_assigned_identity_id" {

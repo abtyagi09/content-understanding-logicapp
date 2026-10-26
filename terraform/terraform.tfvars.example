@@ -2,9 +2,21 @@ subscription_id      = "00000000-0000-0000-0000-000000000000"
 resource_group_name  = "rg-content-understanding"
 location             = "westus3"
 name_prefix          = "cuapp"
+logic_app_name_override = ""
+storage_account_name_override = ""
+user_assigned_identity_name_override = ""
+application_insights_name_override = ""
+log_analytics_workspace_name_override = ""
 
 logic_app_sku                     = "WS1"
 logic_app_public_network_access   = true
+existing_service_plan_id          = ""
+existing_vnet_id                  = ""
+existing_infra_subnet_id          = ""
+existing_private_endpoint_subnet_id = ""
+existing_jumpbox_subnet_id        = ""
+existing_logicapp_private_dns_zone_id = ""
+existing_storage_private_dns_zone_ids = {}
 content_understanding_analyzer    = "prebuilt-invoice"
 deploy_foundry                    = false
 deploy_key_vault                  = false
@@ -17,6 +29,10 @@ jumpbox_subnet_prefix           = "10.50.2.0/24"
 private_endpoint_subnet_prefix  = "10.50.3.0/24"
 
 azure_files_shared_key_exception_approved = false
+storage_network_default_action             = "Deny"
+content_share_name                         = "logicapp-content"
+content_share_quota_gb                     = 100
+existing_log_analytics_workspace_id        = ""
 
 tags = {
   environment = "dev"

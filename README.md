@@ -45,10 +45,12 @@ The infra subnet is dedicated to Logic Apps VNet integration.
 `scripts\package-customer.ps1` creates a clean customer ZIP excluding the POC SSH
 keys, Terraform directory, and prebuilt package.
 
-The `terraform` directory is legacy infrastructure and is **not equivalent** to
-this architecture. Do not apply it. The `.ssh` directory and existing package are
-local POC files; they are not required for deployment and must not be included in a
-customer handoff. Only SSH public keys may be used.
+The `terraform` directory contains the Terraform implementation for this
+architecture, including a portal-parity example
+(`terraform\terraform.portal-rg.tfvars.example`) for `logicapp-portal-rg`.
+The `.ssh` directory and existing package are local POC files; they are not
+required for deployment and must not be included in a customer handoff. Only SSH
+public keys may be used.
 
 ## Deploy from PowerShell and Azure CLI
 

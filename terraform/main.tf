@@ -119,12 +119,12 @@ module "vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "0.8.1"
 
-  enable_telemetry = false
-  name             = "${var.name_prefix}-vnet"
-  location         = local.location
+  enable_telemetry    = false
+  name                = "${var.name_prefix}-vnet"
+  location            = local.location
   resource_group_name = data.azurerm_resource_group.current.name
-  address_space    = [var.vnet_address_prefix]
-  tags             = local.common_tags
+  address_space       = [var.vnet_address_prefix]
+  tags                = local.common_tags
 
   subnets = {
     infra = {
@@ -272,12 +272,12 @@ module "key_vault" {
   source  = "Azure/avm-res-keyvault-vault/azurerm"
   version = "0.12.0"
 
-  enable_telemetry = false
-  name             = local.key_vault_name
-  location         = local.location
+  enable_telemetry    = false
+  name                = local.key_vault_name
+  location            = local.location
   resource_group_name = data.azurerm_resource_group.current.name
-  tenant_id        = data.azurerm_client_config.current.tenant_id
-  tags             = local.common_tags
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  tags                = local.common_tags
 
   legacy_access_policies_enabled = false
   public_network_access_enabled  = false
@@ -339,24 +339,24 @@ resource "azurerm_logic_app_standard" "logic" {
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME             = "dotnet"
-    WEBSITE_NODE_DEFAULT_VERSION         = "~20"
-    APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "ClientId=${azurerm_user_assigned_identity.logic_uami.client_id};Authorization=AAD"
-    APPLICATIONINSIGHTS_CONNECTION_STRING      = azurerm_application_insights.logic.connection_string
-    AzureWebJobsStorage__credential      = "managedidentity"
-    AzureWebJobsStorage__blobServiceUri  = "https://${module.storage.name}.blob.${var.storage_dns_suffix}"
-    AzureWebJobsStorage__queueServiceUri = "https://${module.storage.name}.queue.${var.storage_dns_suffix}"
-    AzureWebJobsStorage__tableServiceUri = "https://${module.storage.name}.table.${var.storage_dns_suffix}"
+    FUNCTIONS_WORKER_RUNTIME                       = "dotnet"
+    WEBSITE_NODE_DEFAULT_VERSION                   = "~22"
+    APPLICATIONINSIGHTS_AUTHENTICATION_STRING      = "ClientId=${azurerm_user_assigned_identity.logic_uami.client_id};Authorization=AAD"
+    APPLICATIONINSIGHTS_CONNECTION_STRING          = azurerm_application_insights.logic.connection_string
+    AzureWebJobsStorage__credential                = "managedidentity"
+    AzureWebJobsStorage__blobServiceUri            = "https://${module.storage.name}.blob.${var.storage_dns_suffix}"
+    AzureWebJobsStorage__queueServiceUri           = "https://${module.storage.name}.queue.${var.storage_dns_suffix}"
+    AzureWebJobsStorage__tableServiceUri           = "https://${module.storage.name}.table.${var.storage_dns_suffix}"
     AzureWebJobsStorage__managedIdentityResourceId = azurerm_user_assigned_identity.logic_uami.id
-    AZURE_STORAGE_ACCOUNT_NAME           = module.storage.name
-    AZURE_STORAGE_CONTAINER_NAME         = module.storage.containers["documents"].name
-    AZURE_STORAGE_RESULTS_CONTAINER_NAME = module.storage.containers["results"].name
-    AZURE_STORAGE_BLOB_ENDPOINT          = "https://${module.storage.fqdn.blob}"
-    CONTENT_UNDERSTANDING_ENDPOINT       = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
-    CONTENT_UNDERSTANDING_MODEL          = var.content_understanding_analyzer
-    KEY_VAULT_URI                        = var.deploy_key_vault ? module.key_vault[0].uri : ""
-    FUNCTIONS_INPROC_NET8_ENABLED        = "1"
-    LOGIC_APPS_POWERSHELL_VERSION        = "7.4"
+    AZURE_STORAGE_ACCOUNT_NAME                     = module.storage.name
+    AZURE_STORAGE_CONTAINER_NAME                   = module.storage.containers["documents"].name
+    AZURE_STORAGE_RESULTS_CONTAINER_NAME           = module.storage.containers["results"].name
+    AZURE_STORAGE_BLOB_ENDPOINT                    = "https://${module.storage.fqdn.blob}"
+    CONTENT_UNDERSTANDING_ENDPOINT                 = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
+    CONTENT_UNDERSTANDING_MODEL                    = var.content_understanding_analyzer
+    KEY_VAULT_URI                                  = var.deploy_key_vault ? module.key_vault[0].uri : ""
+    FUNCTIONS_INPROC_NET8_ENABLED                  = "1"
+    LOGIC_APPS_POWERSHELL_VERSION                  = "7.4"
   }
 
   site_config {
@@ -373,10 +373,10 @@ resource "azapi_update_resource" "logic_site_network_config" {
 
   body = {
     properties = {
-      publicNetworkAccess       = var.logic_app_public_network_access ? "Enabled" : "Disabled"
-      keyVaultReferenceIdentity = "SystemAssigned"
+      publicNetworkAccess                   = var.logic_app_public_network_access ? "Enabled" : "Disabled"
+      keyVaultReferenceIdentity             = "SystemAssigned"
       functionsRuntimeAdminIsolationEnabled = true
-      vnetContentShareEnabled   = true
+      vnetContentShareEnabled               = true
       outboundVnetRouting = {
         applicationTraffic  = true
         contentShareTraffic = true
