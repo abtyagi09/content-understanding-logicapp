@@ -341,14 +341,9 @@ resource "azurerm_logic_app_standard" "logic" {
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME             = "dotnet"
     WEBSITE_NODE_DEFAULT_VERSION         = "~20"
-    WEBSITE_SKIP_CONTENTSHARE_VALIDATION = "1"
-    WEBSITE_CONTENTOVERVNET              = "1"
-    WEBSITE_DNS_SERVER                   = "168.63.129.16"
     APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "ClientId=${azurerm_user_assigned_identity.logic_uami.client_id};Authorization=AAD"
     APPLICATIONINSIGHTS_CONNECTION_STRING      = azurerm_application_insights.logic.connection_string
-    AzureWebJobsStorage__accountName     = module.storage.name
     AzureWebJobsStorage__credential      = "managedidentity"
-    AzureWebJobsStorage__credentialType  = "managedIdentity"
     AzureWebJobsStorage__blobServiceUri  = "https://${module.storage.name}.blob.${var.storage_dns_suffix}"
     AzureWebJobsStorage__queueServiceUri = "https://${module.storage.name}.queue.${var.storage_dns_suffix}"
     AzureWebJobsStorage__tableServiceUri = "https://${module.storage.name}.table.${var.storage_dns_suffix}"
@@ -365,7 +360,7 @@ resource "azurerm_logic_app_standard" "logic" {
   }
 
   site_config {
-    always_on                 = true
+    always_on                 = false
     ftps_state                = "Disabled"
     use_32_bit_worker_process = false
   }
