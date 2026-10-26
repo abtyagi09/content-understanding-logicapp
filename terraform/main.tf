@@ -34,6 +34,9 @@ locals {
   key_vault_name       = "${var.name_prefix}-kv-${local.suffix}"
   logic_app_name       = "${var.name_prefix}-logic-${local.suffix}"
   foundry_name         = "${var.name_prefix}-ai-${local.suffix}"
+  uami_name            = "${var.name_prefix}-logic-uami-${substr(local.suffix, 0, 6)}"
+  log_analytics_name   = "${var.name_prefix}-law-${substr(local.suffix, 0, 8)}"
+  app_insights_name    = "${var.name_prefix}-appi-${substr(local.suffix, 0, 8)}"
 
   content_share_name = "logicapp-content"
 
@@ -53,6 +56,31 @@ locals {
     queue = "privatelink.queue.${var.storage_dns_suffix}"
     table = "privatelink.table.${var.storage_dns_suffix}"
   }
+}
+
+resource "azurerm_user_assigned_identity" "logic_uami" {
+  name                = local.uami_name
+  location            = local.location
+  resource_group_name = data.azurerm_resource_group.current.name
+  tags                = local.common_tags
+}
+
+resource "azurerm_log_analytics_workspace" "logic" {
+  name                = local.log_analytics_name
+  location            = local.location
+  resource_group_name = data.azurerm_resource_group.current.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  tags                = local.common_tags
+}
+
+resource "azurerm_application_insights" "logic" {
+  name                = local.app_insights_name
+  location            = local.location
+  resource_group_name = data.azurerm_resource_group.current.name
+  workspace_id        = azurerm_log_analytics_workspace.logic.id
+  application_type    = "web"
+  tags                = local.common_tags
 }
 
 resource "azurerm_network_security_group" "jumpbox" {
@@ -306,18 +334,25 @@ resource "azurerm_logic_app_standard" "logic" {
   tags                       = local.common_tags
 
   identity {
-    type = "SystemAssigned"
+    type         = "SystemAssigned, UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.logic_uami.id]
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME             = "node"
-    WEBSITE_NODE_DEFAULT_VERSION         = "~22"
+    FUNCTIONS_WORKER_RUNTIME             = "dotnet"
+    WEBSITE_NODE_DEFAULT_VERSION         = "~20"
     WEBSITE_SKIP_CONTENTSHARE_VALIDATION = "1"
     WEBSITE_CONTENTOVERVNET              = "1"
     WEBSITE_DNS_SERVER                   = "168.63.129.16"
+    APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "ClientId=${azurerm_user_assigned_identity.logic_uami.client_id};Authorization=AAD"
+    APPLICATIONINSIGHTS_CONNECTION_STRING      = azurerm_application_insights.logic.connection_string
     AzureWebJobsStorage__accountName     = module.storage.name
     AzureWebJobsStorage__credential      = "managedidentity"
     AzureWebJobsStorage__credentialType  = "managedIdentity"
+    AzureWebJobsStorage__blobServiceUri  = "https://${module.storage.name}.blob.${var.storage_dns_suffix}"
+    AzureWebJobsStorage__queueServiceUri = "https://${module.storage.name}.queue.${var.storage_dns_suffix}"
+    AzureWebJobsStorage__tableServiceUri = "https://${module.storage.name}.table.${var.storage_dns_suffix}"
+    AzureWebJobsStorage__managedIdentityResourceId = azurerm_user_assigned_identity.logic_uami.id
     AZURE_STORAGE_ACCOUNT_NAME           = module.storage.name
     AZURE_STORAGE_CONTAINER_NAME         = module.storage.containers["documents"].name
     AZURE_STORAGE_RESULTS_CONTAINER_NAME = module.storage.containers["results"].name
@@ -325,6 +360,8 @@ resource "azurerm_logic_app_standard" "logic" {
     CONTENT_UNDERSTANDING_ENDPOINT       = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL          = var.content_understanding_analyzer
     KEY_VAULT_URI                        = var.deploy_key_vault ? module.key_vault[0].uri : ""
+    FUNCTIONS_INPROC_NET8_ENABLED        = "1"
+    LOGIC_APPS_POWERSHELL_VERSION        = "7.4"
   }
 
   site_config {
@@ -343,7 +380,12 @@ resource "azapi_update_resource" "logic_site_network_config" {
     properties = {
       publicNetworkAccess       = var.logic_app_public_network_access ? "Enabled" : "Disabled"
       keyVaultReferenceIdentity = "SystemAssigned"
+      functionsRuntimeAdminIsolationEnabled = true
       vnetContentShareEnabled   = true
+      outboundVnetRouting = {
+        applicationTraffic  = true
+        contentShareTraffic = true
+      }
       siteConfig = {
         scmMinTlsVersion    = "1.2"
         vnetRouteAllEnabled = false
@@ -489,6 +531,36 @@ resource "azurerm_role_assignment" "logic_foundry" {
   scope                = azapi_resource.foundry[0].id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_logic_app_standard.logic.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "uami_storage_blob" {
+  scope                = module.storage.resource_id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = azurerm_user_assigned_identity.logic_uami.principal_id
+}
+
+resource "azurerm_role_assignment" "uami_storage_queue" {
+  scope                = module.storage.resource_id
+  role_definition_name = "Storage Queue Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.logic_uami.principal_id
+}
+
+resource "azurerm_role_assignment" "uami_storage_table" {
+  scope                = module.storage.resource_id
+  role_definition_name = "Storage Table Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.logic_uami.principal_id
+}
+
+resource "azurerm_role_assignment" "uami_storage_account_contributor" {
+  scope                = module.storage.resource_id
+  role_definition_name = "Storage Account Contributor"
+  principal_id         = azurerm_user_assigned_identity.logic_uami.principal_id
+}
+
+resource "azurerm_role_assignment" "uami_appinsights_metrics" {
+  scope                = azurerm_application_insights.logic.id
+  role_definition_name = "Monitoring Metrics Publisher"
+  principal_id         = azurerm_user_assigned_identity.logic_uami.principal_id
 }
 
 resource "azurerm_network_interface" "jumpbox" {

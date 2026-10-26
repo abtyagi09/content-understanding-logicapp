@@ -249,12 +249,11 @@ Before submitting documents:
 No lifecycle policy is applied to the `documents` or `results` containers. Configure
 retention and deletion to match the customer's data governance requirements.
 
-This is an extension-bundle-based Standard Logic Apps project, so the deployment
-sets `FUNCTIONS_WORKER_RUNTIME=node`. It does not package a .NET worker or
-`Microsoft.Azure.Workflows` NuGet extensions. Keep the bundle-based and
-NuGet-based project models separate. This corrects the prior template's
-`dotnet` worker setting; verify the deployed host/runtime before treating the
-reported `IDistributedCacheProvider` mismatch as resolved.
+This deployment aligns the Logic App host configuration with the Azure portal
+pattern for Standard workflows: `FUNCTIONS_WORKER_RUNTIME=dotnet`, extension
+bundle `Microsoft.Azure.Functions.ExtensionBundle.Workflows`, and
+`FUNCTIONS_INPROC_NET8_ENABLED=1`. It also uses a user-assigned managed
+identity for `AzureWebJobsStorage__managedIdentityResourceId`.
 
 ## Scope and customer prerequisites
 

@@ -28,6 +28,16 @@ output "storage_account_name" {
   value       = module.storage.name
 }
 
+output "logic_app_user_assigned_identity_id" {
+  description = "Resource ID of the user-assigned managed identity attached to the Logic App."
+  value       = azurerm_user_assigned_identity.logic_uami.id
+}
+
+output "application_insights_name" {
+  description = "Application Insights resource name for the Logic App."
+  value       = azurerm_application_insights.logic.name
+}
+
 output "key_vault_name" {
   description = "Name of the private Key Vault."
   value       = var.deploy_key_vault ? module.key_vault[0].name : ""
