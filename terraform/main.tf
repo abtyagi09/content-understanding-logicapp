@@ -1,6 +1,8 @@
 terraform {
   required_version = ">= 1.11.0"
 
+  backend "azurerm" {}
+
   required_providers {
     azapi = {
       source  = "Azure/azapi"
@@ -33,6 +35,7 @@ locals {
   storage_account_name = substr(replace(lower("${var.name_prefix}${local.suffix}"), "-", ""), 0, 24)
   key_vault_name       = "${var.name_prefix}-kv-${local.suffix}"
   logic_app_name       = "${var.name_prefix}-logic-${local.suffix}"
+  service_plan_name    = var.service_plan_name_override != "" ? var.service_plan_name_override : "${var.name_prefix}-logic-plan-${substr(local.suffix, 0, 4)}"
   foundry_name         = "${var.name_prefix}-ai-${local.suffix}"
   uami_name            = "${var.name_prefix}-logic-uami-${substr(local.suffix, 0, 6)}"
   log_analytics_name   = "${var.name_prefix}-law-${substr(local.suffix, 0, 8)}"
@@ -312,7 +315,7 @@ resource "azapi_resource_action" "storage_list_keys" {
 }
 
 resource "azurerm_service_plan" "logic" {
-  name                = "${var.name_prefix}-logic-plan"
+  name                = local.service_plan_name
   location            = local.location
   resource_group_name = data.azurerm_resource_group.current.name
   os_type             = "Windows"
@@ -322,16 +325,21 @@ resource "azurerm_service_plan" "logic" {
 }
 
 resource "azurerm_logic_app_standard" "logic" {
-  name                       = local.logic_app_name
-  location                   = local.location
-  resource_group_name        = data.azurerm_resource_group.current.name
-  app_service_plan_id        = azurerm_service_plan.logic.id
-  storage_account_name       = module.storage.name
-  storage_account_access_key = azapi_resource_action.storage_list_keys.output.keys[0].value
-  version                    = "~4"
-  https_only                 = true
-  virtual_network_subnet_id  = module.vnet.subnets["infra"].resource_id
-  tags                       = local.common_tags
+  name                                     = local.logic_app_name
+  location                                 = local.location
+  resource_group_name                      = data.azurerm_resource_group.current.name
+  app_service_plan_id                      = azurerm_service_plan.logic.id
+  public_network_access                    = var.logic_app_public_network_access ? "Enabled" : "Disabled"
+  ftp_publish_basic_authentication_enabled = false
+  scm_publish_basic_authentication_enabled = false
+  storage_account_name                     = module.storage.name
+  storage_account_access_key               = azapi_resource_action.storage_list_keys.output.keys[0].value
+  storage_account_share_name               = local.content_share_name
+  version                                  = "~4"
+  https_only                               = true
+  virtual_network_subnet_id                = module.vnet.subnets["infra"].resource_id
+  vnet_content_share_enabled               = true
+  tags                                     = local.common_tags
 
   identity {
     type         = "SystemAssigned, UserAssigned"
@@ -341,9 +349,14 @@ resource "azurerm_logic_app_standard" "logic" {
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME                       = "dotnet"
     WEBSITE_NODE_DEFAULT_VERSION                   = "~22"
+    WEBSITE_SKIP_CONTENTSHARE_VALIDATION           = "1"
+    WEBSITE_CONTENTOVERVNET                        = "1"
+    WEBSITE_DNS_SERVER                             = "168.63.129.16"
     APPLICATIONINSIGHTS_AUTHENTICATION_STRING      = "ClientId=${azurerm_user_assigned_identity.logic_uami.client_id};Authorization=AAD"
     APPLICATIONINSIGHTS_CONNECTION_STRING          = azurerm_application_insights.logic.connection_string
+    AzureWebJobsStorage__accountName               = module.storage.name
     AzureWebJobsStorage__credential                = "managedidentity"
+    AzureWebJobsStorage__credentialType            = "managedIdentity"
     AzureWebJobsStorage__blobServiceUri            = "https://${module.storage.name}.blob.${var.storage_dns_suffix}"
     AzureWebJobsStorage__queueServiceUri           = "https://${module.storage.name}.queue.${var.storage_dns_suffix}"
     AzureWebJobsStorage__tableServiceUri           = "https://${module.storage.name}.table.${var.storage_dns_suffix}"
@@ -355,37 +368,16 @@ resource "azurerm_logic_app_standard" "logic" {
     CONTENT_UNDERSTANDING_ENDPOINT                 = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL                    = var.content_understanding_analyzer
     KEY_VAULT_URI                                  = var.deploy_key_vault ? module.key_vault[0].uri : ""
-    FUNCTIONS_INPROC_NET8_ENABLED                  = "1"
     LOGIC_APPS_POWERSHELL_VERSION                  = "7.4"
   }
 
   site_config {
     always_on                 = false
-    ftps_state                = "Disabled"
+    ftps_state                = "FtpsOnly"
+    min_tls_version           = "1.2"
+    scm_min_tls_version       = "1.2"
     use_32_bit_worker_process = false
-  }
-}
-
-resource "azapi_update_resource" "logic_site_network_config" {
-  type      = "Microsoft.Web/sites@2024-04-01"
-  name      = azurerm_logic_app_standard.logic.name
-  parent_id = data.azurerm_resource_group.current.id
-
-  body = {
-    properties = {
-      publicNetworkAccess                   = var.logic_app_public_network_access ? "Enabled" : "Disabled"
-      keyVaultReferenceIdentity             = "SystemAssigned"
-      functionsRuntimeAdminIsolationEnabled = true
-      vnetContentShareEnabled               = true
-      outboundVnetRouting = {
-        applicationTraffic  = true
-        contentShareTraffic = true
-      }
-      siteConfig = {
-        scmMinTlsVersion    = "1.2"
-        vnetRouteAllEnabled = false
-      }
-    }
+    vnet_route_all_enabled    = true
   }
 }
 
