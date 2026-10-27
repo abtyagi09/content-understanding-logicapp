@@ -31,6 +31,12 @@ variable "logic_app_name_override" {
   default     = ""
 }
 
+variable "service_plan_name_override" {
+  description = "Optional explicit App Service plan name."
+  type        = string
+  default     = ""
+}
+
 variable "storage_account_name_override" {
   description = "Optional explicit Storage account name."
   type        = string
@@ -166,6 +172,12 @@ variable "content_understanding_analyzer" {
   description = "Analyzer ID used by the sample workflow."
   type        = string
   default     = "prebuilt-invoice"
+}
+
+variable "outlook_mailbox_user" {
+  description = "Mailbox UPN/email polled by the ProcessOutlookInvoice workflow."
+  type        = string
+  default     = ""
 }
 
 variable "deploy_foundry" {

@@ -18,6 +18,7 @@ existing_jumpbox_subnet_id        = ""
 existing_logicapp_private_dns_zone_id = ""
 existing_storage_private_dns_zone_ids = {}
 content_understanding_analyzer    = "prebuilt-invoice"
+outlook_mailbox_user              = ""
 deploy_foundry                    = false
 deploy_key_vault                  = false
 deploy_jumpbox                    = false

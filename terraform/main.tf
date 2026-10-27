@@ -365,6 +365,7 @@ resource "azurerm_logic_app_standard" "logic" {
     AZURE_STORAGE_CONTAINER_NAME                   = module.storage.containers["documents"].name
     AZURE_STORAGE_RESULTS_CONTAINER_NAME           = module.storage.containers["results"].name
     AZURE_STORAGE_BLOB_ENDPOINT                    = "https://${module.storage.fqdn.blob}"
+    OUTLOOK_MAILBOX_USER                           = var.outlook_mailbox_user
     CONTENT_UNDERSTANDING_ENDPOINT                 = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL                    = var.content_understanding_analyzer
     KEY_VAULT_URI                                  = var.deploy_key_vault ? module.key_vault[0].uri : ""

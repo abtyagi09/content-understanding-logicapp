@@ -129,7 +129,17 @@ role-assignment permissions described above. Prefer pre-created resource groups 
 pre-registered providers when subscription-wide privileges are not appropriate.
 
 Set repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and
-`AZURE_SUBSCRIPTION_ID`. Run `.github\workflows\deploy-bicep.yml` manually and supply
+`AZURE_SUBSCRIPTION_ID`.
+
+For Terraform workflow state persistence, also set:
+- `AZURE_TFSTATE_RESOURCE_GROUP`
+- `AZURE_TFSTATE_STORAGE_ACCOUNT` (lowercase letters/numbers, 3-24 chars)
+- `AZURE_TFSTATE_CONTAINER`
+
+`Deploy Terraform (AVM)` uses these values to initialize the `azurerm` backend and
+stores state in `${resourceGroup}.tfstate` blobs so state is reused across runs.
+
+Run `.github\workflows\deploy-bicep.yml` manually and supply
 the resource group, region, and prefix. Set the `JUMPBOX_SSH_PUBLIC_KEY` repository
 secret only if enabling the optional jump box. The workflow accepts the analyzer,
 plan SKU, `deployFoundry` (false by default), and VNet/subnet CIDRs as deployment inputs.
@@ -202,9 +212,10 @@ marked as secure workflow data and aren't exposed in run-history inputs/outputs.
 
 An additional workflow, `logicapp\ProcessOutlookInvoice\workflow.json`, polls an
 Outlook inbox via Microsoft Graph, selects invoice-like attachments
-(`invoice` in filename or `.pdf`), submits each attachment to Content
-Understanding, and stores the JSON output in the `results` container. It marks
-processed emails as read.
+(`invoice` in filename or `.pdf`), and uploads each matching file into the
+`documents` container. The existing `ProcessDocument` workflow then performs
+Content Understanding analysis and stores JSON output in `results`. Emails are
+marked as read only when at least one invoice attachment is queued.
 
 ### Logic App configuration (required app settings)
 
@@ -213,7 +224,8 @@ values in the deployed Logic App **Configuration** pane:
 
 | Setting | Purpose |
 | --- | --- |
-| `FUNCTIONS_WORKER_RUNTIME=node` | Required runtime for this extension-bundle Standard Logic App project |
+| `FUNCTIONS_WORKER_RUNTIME=dotnet` | Required worker runtime for Standard Logic Apps with current platform defaults |
+| `WEBSITE_NODE_DEFAULT_VERSION=~22` | Node.js runtime used by built-in connectors and workflow extensions |
 | `AZURE_STORAGE_BLOB_ENDPOINT` | Blob endpoint used by workflow actions |
 | `AZURE_STORAGE_CONTAINER_NAME=documents` | Input container for blob-trigger workflow |
 | `AZURE_STORAGE_RESULTS_CONTAINER_NAME=results` | Output container for analysis JSON |
@@ -251,11 +263,12 @@ Before submitting documents:
 No lifecycle policy is applied to the `documents` or `results` containers. Configure
 retention and deletion to match the customer's data governance requirements.
 
-This deployment aligns the Logic App host configuration with the Azure portal
-pattern for Standard workflows: `FUNCTIONS_WORKER_RUNTIME=dotnet`, extension
-bundle `Microsoft.Azure.Functions.ExtensionBundle.Workflows`, and
-`FUNCTIONS_INPROC_NET8_ENABLED=1`. It also uses a user-assigned managed
-identity for `AzureWebJobsStorage__managedIdentityResourceId`.
+This deployment aligns the Logic App host configuration with current Standard
+workflow defaults: `FUNCTIONS_WORKER_RUNTIME=dotnet`,
+`WEBSITE_NODE_DEFAULT_VERSION=~22`, and extension bundle
+`Microsoft.Azure.Functions.ExtensionBundle.Workflows`. It also sets
+`AzureWebJobsStorage__managedIdentityResourceId` to the attached user-assigned
+managed identity so host storage access works with managed identity.
 
 ## Scope and customer prerequisites
 
