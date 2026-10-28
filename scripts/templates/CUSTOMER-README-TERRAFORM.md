@@ -49,14 +49,46 @@ request, pointing at the Terraform-managed model deployments.
 
 ## Deploy locally
 
+The Terraform configuration uses a remote `azurerm` backend with no values
+baked in (`backend "azurerm" {}`), so `terraform init` requires an existing
+Storage account to hold state. Create one (once) and pass its details via
+`-backend-config`:
+
 ```powershell
 az login
+
+$tfstateResourceGroup = "rg-tfstate"
+$tfstateStorageAccount = "tfstateXXXXX"   # must be globally unique, lowercase letters/numbers, 3-24 chars
+$tfstateContainer = "tfstate"
+$location = "westus3"
+
+az group create --name $tfstateResourceGroup --location $location
+az storage account create --resource-group $tfstateResourceGroup --name $tfstateStorageAccount `
+  --location $location --sku Standard_LRS --kind StorageV2 --https-only true `
+  --min-tls-version TLS1_2 --allow-blob-public-access false
+$key = az storage account keys list --resource-group $tfstateResourceGroup `
+  --account-name $tfstateStorageAccount --query '[0].value' --output tsv
+az storage container create --name $tfstateContainer --account-name $tfstateStorageAccount --account-key $key
+
 cd terraform
 cp terraform.tfvars.example terraform.tfvars   # edit values for your environment
-terraform init
+
+terraform init -backend-config="resource_group_name=$tfstateResourceGroup" `
+  -backend-config="storage_account_name=$tfstateStorageAccount" `
+  -backend-config="container_name=$tfstateContainer" `
+  -backend-config="key=content-understanding.tfstate"
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
+
+> **Known transient issue:** Azure's Cognitive Services (Foundry) account
+> provisioning is asynchronous, and `terraform apply` can occasionally fail
+> with `RequestConflict` ("Another operation is in progress...") or
+> `AccountProvisioningStateInvalid` ("Account ... in state Accepted") while
+> creating the Foundry private endpoint or project right after the account
+> itself. This is an Azure-side eventual-consistency race, not a
+> configuration error -- simply re-run `terraform apply` (no args needed,
+> it will pick up where it left off) and it succeeds.
 
 After `apply`, package and publish the Logic App workflow:
 
