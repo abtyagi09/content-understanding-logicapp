@@ -51,6 +51,11 @@ on:
         required: true
         type: boolean
         default: false
+      deployContentUnderstandingModels:
+        description: Deploy the completion/embedding model deployments Content Understanding needs (only applies when deployFoundry=true; set false to manage model deployments separately)
+        required: true
+        type: boolean
+        default: true
       deployJumpbox:
         description: Create the optional private jump box (requires JUMPBOX_SSH_PUBLIC_KEY secret)
         required: true
@@ -123,6 +128,7 @@ jobs:
           LOGIC_APP_PUBLIC_NETWORK_ACCESS: ${{ inputs.logicAppPublicNetworkAccess }}
           ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
           DEPLOY_FOUNDRY: ${{ inputs.deployFoundry }}
+          DEPLOY_CU_MODELS: ${{ inputs.deployContentUnderstandingModels }}
           DEPLOY_JUMPBOX: ${{ inputs.deployJumpbox }}
           VNET_CIDR: ${{ inputs.vnetAddressPrefix }}
           INFRA_SUBNET_CIDR: ${{ inputs.infraSubnetPrefix }}
@@ -187,6 +193,7 @@ jobs:
             -var "logic_app_public_network_access=$LOGIC_APP_PUBLIC_NETWORK_ACCESS" \
             -var "content_understanding_analyzer=$ANALYZER" \
             -var "deploy_foundry=$DEPLOY_FOUNDRY" \
+            -var "deploy_content_understanding_models=$DEPLOY_CU_MODELS" \
             -var "deploy_jumpbox=$DEPLOY_JUMPBOX" \
             -var "vnet_address_prefix=$VNET_CIDR" \
             -var "infra_subnet_prefix=$INFRA_SUBNET_CIDR" \

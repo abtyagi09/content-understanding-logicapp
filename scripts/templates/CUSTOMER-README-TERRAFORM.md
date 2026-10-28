@@ -21,10 +21,15 @@ request/data flow, including exactly how each hop authenticates.
   identity) behind a private endpoint by default -- public HTTPS ingress is
   disabled unless `logic_app_public_network_access = true`
 - Optionally, a private Azure AI Foundry account and Content Understanding
-  project, with the completion (`gpt-5.2` by default) and embedding
+  project (`deploy_foundry`), and -- independently, on by default whenever
+  Foundry is deployed -- the completion (`gpt-5.2` by default) and embedding
   (`text-embedding-3-large` by default) model deployments it requires
-- Optionally, Microsoft Graph `Mail.ReadWrite` granted to the Logic App's
-  identities so it can poll and mark messages in the configured mailbox
+  (`deploy_content_understanding_models`; set it `false` to get the Foundry
+  account/project without these model deployments, e.g. if you'll manage
+  model capacity separately)
+- Optionally, and independently of the above, Microsoft Graph
+  `Mail.ReadWrite` granted to the Logic App's identities so it can poll and
+  mark messages in the configured mailbox (`grant_outlook_graph_permissions`)
 - Optionally, a private Ubuntu jump box for operators without another path
   into the VNet -- the recommended way to publish and health-check the
   Logic App package when it's private (the default)
@@ -130,11 +135,15 @@ Set repository variables:
 
 Key workflow inputs:
 - `deployFoundry` (default `false`): creates the Foundry account, project,
-  private endpoint, DNS zones, and both model deployments
+  private endpoint, and DNS zones
+- `deployContentUnderstandingModels` (default `true`, only applies when
+  `deployFoundry=true`): creates the completion and embedding model
+  deployments Content Understanding needs. Set `false` to get the Foundry
+  account/project without them, independently of `deployFoundry`
 - `outlookMailboxUser`: mailbox UPN/email for the Logic App to poll
-- `grantOutlookGraphPermissions` (default `false`): grants Graph
-  `Mail.ReadWrite` to the Logic App's identities -- requires the admin
-  consent described in Prerequisites
+- `grantOutlookGraphPermissions` (default `false`, independent of the above):
+  grants Graph `Mail.ReadWrite` to the Logic App's identities -- requires the
+  admin consent described in Prerequisites
 - `logicAppPublicNetworkAccess` (default `false`): set `true` to let the
   hosted GitHub runner publish and health-check the Logic App package. If
   `false`, publish and verify from a VNet-connected runner or machine instead.

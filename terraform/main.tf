@@ -389,8 +389,8 @@ resource "azurerm_logic_app_standard" "logic" {
     OUTLOOK_MAILBOX_USER                           = var.outlook_mailbox_user
     CONTENT_UNDERSTANDING_ENDPOINT                 = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL                    = var.content_understanding_analyzer
-    CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT    = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
-    CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT     = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
+    CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT    = var.deploy_foundry && var.deploy_content_understanding_models ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
+    CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT     = var.deploy_foundry && var.deploy_content_understanding_models ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
     KEY_VAULT_URI                                  = var.deploy_key_vault ? module.key_vault[0].uri : ""
     LOGIC_APPS_POWERSHELL_VERSION                  = "7.4"
   }
@@ -480,7 +480,7 @@ resource "azapi_resource" "foundry_project" {
 # since it requires a region-specific preview feature registration that is
 # not reliably available at deploy time).
 resource "azurerm_cognitive_deployment" "content_understanding_completion" {
-  count                = var.deploy_foundry ? 1 : 0
+  count                = var.deploy_foundry && var.deploy_content_understanding_models ? 1 : 0
   name                 = "content-understanding-completion"
   cognitive_account_id = azapi_resource.foundry[0].id
 
@@ -497,7 +497,7 @@ resource "azurerm_cognitive_deployment" "content_understanding_completion" {
 }
 
 resource "azurerm_cognitive_deployment" "content_understanding_embedding" {
-  count                = var.deploy_foundry ? 1 : 0
+  count                = var.deploy_foundry && var.deploy_content_understanding_models ? 1 : 0
   name                 = "content-understanding-embedding"
   cognitive_account_id = azapi_resource.foundry[0].id
 

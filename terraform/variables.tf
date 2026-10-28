@@ -180,6 +180,12 @@ variable "deploy_foundry" {
   default     = false
 }
 
+variable "deploy_content_understanding_models" {
+  description = "Deploy the completion and embedding model deployments Content Understanding requires (only applies when deploy_foundry = true). Set false if you'll manage model deployments separately -- for example, different quota/region requirements, or reusing existing deployments on the same Foundry account."
+  type        = bool
+  default     = true
+}
+
 variable "content_understanding_completion_model" {
   description = "Chat completion model deployed for Content Understanding analyzers. Must be one of the models each analyzer's supportedModels.completion list allows (see GET /contentunderstanding/analyzers/{id})."
   type        = string

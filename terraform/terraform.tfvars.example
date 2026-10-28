@@ -35,6 +35,10 @@ admin_ssh_public_key              = ""
 # Defaults match a prebuilt-invoice-compatible completion + embedding model; override
 # if your region/quota requires a different supported model (see
 # GET /contentunderstanding/analyzers/{id} -> supportedModels for the allowed list).
+# Set deploy_content_understanding_models = false to create the Foundry account and
+# project without these two model deployments -- useful if you'll manage model
+# deployments separately (different quota/region, or reusing existing deployments).
+deploy_content_understanding_models            = true
 content_understanding_completion_model         = "gpt-5.2"
 content_understanding_completion_model_version = "2025-12-11"
 content_understanding_embedding_model          = "text-embedding-3-large"

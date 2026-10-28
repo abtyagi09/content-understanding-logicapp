@@ -59,13 +59,13 @@ output "foundry_project_endpoint" {
 }
 
 output "content_understanding_completion_deployment_name" {
-  description = "Name of the chat completion model deployment used by Content Understanding analyzers, when deploy_foundry is enabled."
-  value       = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
+  description = "Name of the chat completion model deployment used by Content Understanding analyzers, when deploy_foundry and deploy_content_understanding_models are both enabled."
+  value       = var.deploy_foundry && var.deploy_content_understanding_models ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
 }
 
 output "content_understanding_embedding_deployment_name" {
-  description = "Name of the embedding model deployment used by Content Understanding analyzers, when deploy_foundry is enabled."
-  value       = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
+  description = "Name of the embedding model deployment used by Content Understanding analyzers, when deploy_foundry and deploy_content_understanding_models are both enabled."
+  value       = var.deploy_foundry && var.deploy_content_understanding_models ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
 }
 
 output "outlook_graph_permissions_granted" {
