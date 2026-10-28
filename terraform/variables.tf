@@ -31,12 +31,6 @@ variable "logic_app_name_override" {
   default     = ""
 }
 
-variable "service_plan_name_override" {
-  description = "Optional explicit App Service plan name."
-  type        = string
-  default     = ""
-}
-
 variable "storage_account_name_override" {
   description = "Optional explicit Storage account name."
   type        = string
@@ -112,6 +106,12 @@ variable "logic_app_sku" {
     condition     = contains(["WS1", "WS2", "WS3"], var.logic_app_sku)
     error_message = "logic_app_sku must be one of WS1, WS2, or WS3."
   }
+}
+
+variable "service_plan_name_override" {
+  description = "Optional explicit App Service plan name when Terraform creates one."
+  type        = string
+  default     = ""
 }
 
 variable "existing_service_plan_id" {
