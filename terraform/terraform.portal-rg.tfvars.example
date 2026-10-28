@@ -28,7 +28,6 @@ existing_storage_private_dns_zone_ids = {
 
 # Portal storage/app behavior
 logic_app_public_network_access  = false
-create_logic_app_private_endpoint = false
 create_data_plane_role_assignments = false
 storage_network_default_action   = "Allow"
 deploy_foundry                   = false

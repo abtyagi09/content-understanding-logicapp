@@ -18,14 +18,16 @@ request/data flow, including exactly how each hop authenticates.
 - A private StorageV2 account with `documents` and `results` containers, plus
   an Azure Files share for the Logic App's runtime content
 - A Windows Logic App Standard site (system-assigned + user-assigned managed
-  identity), optionally with a private inbound endpoint
+  identity) behind a private endpoint by default -- public HTTPS ingress is
+  disabled unless `logic_app_public_network_access = true`
 - Optionally, a private Azure AI Foundry account and Content Understanding
   project, with the completion (`gpt-5.2` by default) and embedding
   (`text-embedding-3-large` by default) model deployments it requires
 - Optionally, Microsoft Graph `Mail.ReadWrite` granted to the Logic App's
   identities so it can poll and mark messages in the configured mailbox
 - Optionally, a private Ubuntu jump box for operators without another path
-  into the VNet
+  into the VNet -- the recommended way to publish and health-check the
+  Logic App package when it's private (the default)
 
 No model defaults are patched on the Content Understanding resource via the
 preview `PATCH /contentunderstanding/defaults` API (it depends on a
@@ -90,7 +92,11 @@ terraform apply tfplan
 > configuration error -- simply re-run `terraform apply` (no args needed,
 > it will pick up where it left off) and it succeeds.
 
-After `apply`, package and publish the Logic App workflow:
+After `apply`, package and publish the Logic App workflow. Because the Logic
+App is private by default, this step must run from a machine with VNet
+connectivity -- the simplest option is the optional jump box
+(`deploy_jumpbox = true` + `admin_ssh_public_key` in your tfvars), reached via
+an existing private connectivity path or Azure Bastion:
 
 ```powershell
 $logicAppName = terraform output -raw logic_app_name
@@ -98,6 +104,11 @@ $resourceGroup = "<your resource group>"
 Compress-Archive -Path ..\logicapp\* -DestinationPath ..\logicapp.zip -Force
 az webapp deploy --resource-group $resourceGroup --name $logicAppName --src-path ..\logicapp.zip --type zip
 ```
+
+If you'd rather publish from a non-VNet machine, set
+`logic_app_public_network_access = true` in `terraform.tfvars` before
+`apply` -- the Logic App's HTTPS endpoint (and the publish/health-check
+commands above) will then work directly from this machine.
 
 ## Deploy via GitHub Actions
 

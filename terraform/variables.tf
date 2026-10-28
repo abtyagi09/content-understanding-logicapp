@@ -157,13 +157,7 @@ variable "existing_storage_private_dns_zone_ids" {
 }
 
 variable "logic_app_public_network_access" {
-  description = "Keep public HTTPS ingress enabled. Set false to create a Logic App private endpoint and private App Service DNS zone."
-  type        = bool
-  default     = true
-}
-
-variable "create_logic_app_private_endpoint" {
-  description = "Create a private endpoint for the Logic App when public network access is disabled."
+  description = "Keep public HTTPS ingress enabled. Defaults to false so the Logic App sits behind a private endpoint like Storage, Key Vault, and Foundry. Set true only if you need the hosted GitHub Actions runner (or another non-VNet client) to publish/health-check the workflow package directly."
   type        = bool
   default     = false
 }

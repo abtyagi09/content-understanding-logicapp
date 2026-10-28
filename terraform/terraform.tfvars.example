@@ -9,7 +9,12 @@ application_insights_name_override = ""
 log_analytics_workspace_name_override = ""
 
 logic_app_sku                     = "WS1"
-logic_app_public_network_access   = true
+# Logic App sits behind a private endpoint by default (like Storage, Key
+# Vault, and Foundry). Publishing the workflow package and health-checking
+# the host then requires a VNet-connected machine -- enable deploy_jumpbox
+# below for one, or set this to true if you need a non-VNet client (for
+# example the hosted GitHub Actions runner) to publish/verify directly.
+logic_app_public_network_access   = false
 existing_service_plan_id          = ""
 existing_vnet_id                  = ""
 existing_infra_subnet_id          = ""
@@ -21,6 +26,8 @@ content_understanding_analyzer    = "prebuilt-invoice"
 outlook_mailbox_user              = ""
 deploy_foundry                    = false
 deploy_key_vault                  = false
+# Set true (with admin_ssh_public_key below) for a private jump box to
+# publish/verify the Logic App when logic_app_public_network_access = false.
 deploy_jumpbox                    = false
 admin_ssh_public_key              = ""
 
