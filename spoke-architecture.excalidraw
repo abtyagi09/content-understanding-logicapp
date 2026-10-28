@@ -108,15 +108,15 @@
 
     {"type":"arrow","id":"flow_a1","x":170,"y":840,"width":90,"height":0,"strokeColor":"#e8590c","strokeWidth":2,"points":[[0,0],[90,0]],
       "startBinding":{"elementId":"flow_b1","focus":0,"gap":2},"endBinding":{"elementId":"flow_b2","focus":0,"gap":2}},
-    {"type":"text","id":"flow_a1_t","x":175,"y":815,"width":90,"height":20,"text":"\u2460 poll inbox","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"type":"text","id":"flow_a1_t","x":175,"y":815,"width":90,"height":20,"text":"\u2460 poll inbox \ud83d\udd12","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
 
     {"type":"arrow","id":"flow_a2","x":355,"y":890,"width":0,"height":60,"strokeColor":"#e8590c","strokeWidth":2,"points":[[0,0],[0,60]],
       "startBinding":{"elementId":"flow_b2","focus":0,"gap":2},"endBinding":{"elementId":"flow_b3","focus":0,"gap":2}},
-    {"type":"text","id":"flow_a2_t","x":365,"y":910,"width":110,"height":30,"text":"\u2461 upload\nattachment","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+    {"type":"text","id":"flow_a2_t","x":365,"y":910,"width":110,"height":30,"text":"\u2461 upload\nattachment \ud83d\udd12","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
 
     {"type":"arrow","id":"flow_a3","x":490,"y":825,"width":110,"height":0,"strokeColor":"#e8590c","strokeWidth":2,"points":[[0,0],[110,0]],
       "startBinding":{"elementId":"flow_b2","focus":0,"gap":2},"endBinding":{"elementId":"flow_b5","focus":0,"gap":2}},
-    {"type":"text","id":"flow_a3_t","x":500,"y":803,"width":90,"height":20,"text":"\u2462 analyze","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"type":"text","id":"flow_a3_t","x":500,"y":803,"width":90,"height":20,"text":"\u2462 analyze \ud83d\udd12","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
 
     {"type":"arrow","id":"flow_a4","x":600,"y":855,"width":-110,"height":0,"strokeColor":"#e8590c","strokeWidth":2,"strokeStyle":"dashed","points":[[0,0],[-110,0]],
       "startBinding":{"elementId":"flow_b5","focus":0,"gap":2},"endBinding":{"elementId":"flow_b2","focus":0,"gap":2}},
@@ -124,7 +124,19 @@
 
     {"type":"arrow","id":"flow_a5","x":525,"y":890,"width":30,"height":60,"strokeColor":"#e8590c","strokeWidth":2,"points":[[0,0],[30,60]],
       "startBinding":{"elementId":"flow_b2","focus":0,"gap":2},"endBinding":{"elementId":"flow_b6","focus":0,"gap":2}},
-    {"type":"text","id":"flow_a5_t","x":540,"y":910,"width":110,"height":30,"text":"\u2464 store\nresult","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"}
+    {"type":"text","id":"flow_a5_t","x":540,"y":910,"width":110,"height":30,"text":"\u2464 store\nresult \ud83d\udd12","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"text","id":"auth_title","x":20,"y":1060,"width":600,"height":28,"text":"\ud83d\udd12 Authentication (Microsoft Entra ID / Managed Identity)","fontSize":16,"fontFamily":2,"strokeColor":"#1e1e1e","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"auth_box","x":20,"y":1095,"width":920,"height":260,"strokeColor":"#868e96","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":1,"strokeStyle":"dashed","roundness":{"type":3}},
+
+    {"type":"text","id":"auth_line1","x":40,"y":1110,"width":880,"height":40,"text":"\u2460 Poll inbox \u2192 Microsoft Graph: System-Assigned Managed Identity token\n(audience https://graph.microsoft.com, authorized via Mail.ReadWrite application permission)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"text","id":"auth_line2","x":40,"y":1160,"width":880,"height":40,"text":"\u2461 Upload attachment / \u2464 Store result \u2192 Storage: System-Assigned Managed Identity token\n(audience https://storage.azure.com, authorized via Storage Blob Data Owner role, RBAC)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"text","id":"auth_line3","x":40,"y":1210,"width":880,"height":40,"text":"\u2462 Analyze / \u2463 Result \u2192 Content Understanding (AI Foundry): System-Assigned Managed Identity token\n(audience https://cognitiveservices.azure.com, authorized via Cognitive Services User role, RBAC)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"text","id":"auth_line4","x":40,"y":1270,"width":880,"height":60,"text":"No client secrets, API keys, or connection strings are used anywhere in this flow \u2014 Microsoft Entra ID\nissues short-lived tokens to the Logic App's managed identity for every outbound call, scoped per audience.","fontSize":12,"fontFamily":2,"strokeColor":"#495057","textAlign":"left","verticalAlign":"top"}
   ],
   "appState": {"viewBackgroundColor": "#ffffff"}
 }
