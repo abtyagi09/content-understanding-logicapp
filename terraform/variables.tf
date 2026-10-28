@@ -186,6 +186,42 @@ variable "deploy_foundry" {
   default     = false
 }
 
+variable "content_understanding_completion_model" {
+  description = "Chat completion model deployed for Content Understanding analyzers. Must be one of the models each analyzer's supportedModels.completion list allows (see GET /contentunderstanding/analyzers/{id})."
+  type        = string
+  default     = "gpt-5.2"
+}
+
+variable "content_understanding_completion_model_version" {
+  description = "Model version for content_understanding_completion_model."
+  type        = string
+  default     = "2025-12-11"
+}
+
+variable "content_understanding_embedding_model" {
+  description = "Embedding model deployed for Content Understanding analyzers that require embeddings."
+  type        = string
+  default     = "text-embedding-3-large"
+}
+
+variable "content_understanding_embedding_model_version" {
+  description = "Model version for content_understanding_embedding_model."
+  type        = string
+  default     = "1"
+}
+
+variable "content_understanding_model_capacity" {
+  description = "GlobalStandard SKU capacity (in thousands of TPM) for each Content Understanding model deployment."
+  type        = number
+  default     = 10
+}
+
+variable "grant_outlook_graph_permissions" {
+  description = "Grant Microsoft Graph Mail.ReadWrite application permission to the Logic App's system-assigned and user-assigned identities, so ProcessOutlookInvoice* workflows can poll/mark messages in outlook_mailbox_user. Requires the deploying identity to hold Microsoft Graph Application.ReadWrite.All and AppRoleAssignment.ReadWrite.All (admin-consented)."
+  type        = bool
+  default     = false
+}
+
 variable "deploy_key_vault" {
   description = "Create a private Key Vault and related DNS/role assignment resources."
   type        = bool

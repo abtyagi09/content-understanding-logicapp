@@ -1,0 +1,45 @@
+subscription_id     = "c577a985-0f55-4a4b-87f4-63c06e46ee65"
+resource_group_name = "logicapp-portal-rg"
+location            = "westus3"
+name_prefix         = "cuapp"
+
+# Portal-equivalent names
+logic_app_name_override               = "loggicapp94av"
+content_share_name                    = "loggicapp94avaad3"
+content_share_quota_gb                = 102400
+
+# Reuse existing Logic App dependencies from the portal RG (logic-app-only mode)
+existing_storage_account_name       = "logicappportalrgb4e0"
+existing_user_assigned_identity_id  = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/logicapp-portal-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/loggicapp94av-uami"
+existing_application_insights_id    = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/logicapp-portal-rg/providers/Microsoft.Insights/components/loggicapp94av"
+
+# Reuse existing shared network resources (as in portal deployment)
+existing_service_plan_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Web/serverFarms/cuapp-logic-plan"
+existing_vnet_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/virtualNetworks/cuapp-vnet"
+existing_infra_subnet_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/virtualNetworks/cuapp-vnet/subnets/snet-infra"
+existing_private_endpoint_subnet_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/virtualNetworks/cuapp-vnet/subnets/snet-private-endpoints"
+existing_logicapp_private_dns_zone_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
+existing_storage_private_dns_zone_ids = {
+  blob  = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+  file  = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/privateDnsZones/privatelink.file.core.windows.net"
+  queue = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
+  table = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/rg-vse-cu-avm-gha-01/providers/Microsoft.Network/privateDnsZones/privatelink.table.core.windows.net"
+}
+
+# Portal storage/app behavior
+logic_app_public_network_access  = false
+create_logic_app_private_endpoint = false
+create_data_plane_role_assignments = false
+storage_network_default_action   = "Allow"
+deploy_foundry                   = false
+deploy_key_vault                 = false
+deploy_jumpbox                   = false
+content_understanding_analyzer   = "prebuilt-invoice"
+outlook_mailbox_user             = ""
+existing_log_analytics_workspace_id = "/subscriptions/c577a985-0f55-4a4b-87f4-63c06e46ee65/resourceGroups/DefaultResourceGroup-USW3/providers/Microsoft.OperationalInsights/workspaces/DefaultWorkspace-c577a985-0f55-4a4b-87f4-63c06e46ee65-USW3"
+
+tags = {
+  environment = "production"
+  project     = "POC"
+  service     = "webapps"
+}

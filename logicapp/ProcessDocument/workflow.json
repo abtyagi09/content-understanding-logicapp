@@ -6,18 +6,13 @@
         "type": "ServiceProvider",
         "inputs": {
           "parameters": {
-            "path": "/{folder}/{name}",
-            "containerName": "documents"
+            "path": "documents/{name}"
           },
           "serviceProviderConfiguration": {
             "connectionName": "azureblob",
-            "operationId": "whenPathIsUpdated",
+            "operationId": "whenABlobIsAddedOrModified",
             "serviceProviderId": "/serviceProviders/AzureBlob"
           }
-        },
-        "recurrence": {
-          "frequency": "Minute",
-          "interval": 1
         },
         "metadata": {
           "operationMetadataId": "d4a7ed3e-1584-4d7a-8793-9de8d3d7bca2"
@@ -37,11 +32,11 @@
         "inputs": {
           "parameters": {
             "containerName": "documents",
-            "blobName": "@triggerBody()?['Path']"
+            "blobName": "@triggerBody()?['name']"
           },
           "serviceProviderConfiguration": {
             "connectionName": "azureblob",
-            "operationId": "readBlobContent",
+            "operationId": "readBlob",
             "serviceProviderId": "/serviceProviders/AzureBlob"
           }
         },
@@ -69,10 +64,15 @@
           "body": {
             "inputs": [
               {
-                "data": "@{base64(body('Read_blob_content'))}",
-                "name": "@{triggerBody()?['Name']}"
+                "data": "@{base64(body('Read_blob_content')?['content'])}",
+                "name": "@{triggerBody()?['name']}"
               }
-            ]
+            ],
+            "modelDeployments": {
+              "prebuilt-analyzer-completion": "@{appsetting('CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT')}",
+              "prebuilt-analyzer-completion-mini": "@{appsetting('CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT')}",
+              "prebuilt-analyzer-embedding": "@{appsetting('CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT')}"
+            }
           }
         },
         "runtimeConfiguration": {
@@ -149,14 +149,6 @@
               "Get_analysis_result": [
                 "Succeeded"
               ]
-            },
-            "runtimeConfiguration": {
-              "secureData": {
-                "properties": [
-                  "inputs",
-                  "outputs"
-                ]
-              }
             }
           },
           "Set_analysis_status": {
@@ -217,7 +209,7 @@
         "type": "Http",
         "inputs": {
           "method": "PUT",
-          "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/', workflow().run.name, '.json')}",
+          "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), '/', appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/', workflow().run.name, '.json')}",
           "headers": {
             "Content-Type": "application/json",
             "x-ms-blob-type": "BlockBlob",

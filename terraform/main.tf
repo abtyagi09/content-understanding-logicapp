@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -22,11 +26,23 @@ provider "azurerm" {
 
 provider "azapi" {}
 
+# Only required when grant_outlook_graph_permissions is true. Uses ambient
+# Azure CLI / OIDC auth already established for the azurerm provider.
+provider "azuread" {}
+
 data "azurerm_resource_group" "current" {
   name = var.resource_group_name
 }
 
 data "azurerm_client_config" "current" {}
+
+# Microsoft Graph's service principal is identical across tenants
+# (appId 00000003-0000-0000-c000-000000000000). Resolved only when granting
+# Outlook mailbox permissions to the Logic App's managed identities.
+data "azuread_service_principal" "msgraph" {
+  count     = var.grant_outlook_graph_permissions ? 1 : 0
+  client_id = "00000003-0000-0000-c000-000000000000"
+}
 
 locals {
   location = coalesce(var.location, data.azurerm_resource_group.current.location)
@@ -59,6 +75,11 @@ locals {
     queue = "privatelink.queue.${var.storage_dns_suffix}"
     table = "privatelink.table.${var.storage_dns_suffix}"
   }
+
+  # Microsoft Graph "Mail.ReadWrite" application role ID. Stable across
+  # tenants; granted to the Logic App's identities so ProcessOutlookInvoice*
+  # workflows can poll and mark messages in the configured mailbox.
+  mail_readwrite_app_role_id = "e2a3a72e-5f79-4c64-b1b1-878b674786c9"
 }
 
 resource "azurerm_user_assigned_identity" "logic_uami" {
@@ -368,6 +389,8 @@ resource "azurerm_logic_app_standard" "logic" {
     OUTLOOK_MAILBOX_USER                           = var.outlook_mailbox_user
     CONTENT_UNDERSTANDING_ENDPOINT                 = var.deploy_foundry ? "https://${local.foundry_name}.cognitiveservices.azure.com" : ""
     CONTENT_UNDERSTANDING_MODEL                    = var.content_understanding_analyzer
+    CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT    = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
+    CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT     = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
     KEY_VAULT_URI                                  = var.deploy_key_vault ? module.key_vault[0].uri : ""
     LOGIC_APPS_POWERSHELL_VERSION                  = "7.4"
   }
@@ -448,6 +471,48 @@ resource "azapi_resource" "foundry_project" {
   }
 }
 
+# Content Understanding requires an explicit completion and embedding model
+# deployment on the connected Foundry resource; it never auto-provisions
+# model capacity. These names are wired into the Logic App's
+# CONTENT_UNDERSTANDING_*_DEPLOYMENT app settings, and the sample workflows
+# pass them inline via `modelDeployments` on every analyze request (resource
+# level PATCH /contentunderstanding/defaults is intentionally not used here
+# since it requires a region-specific preview feature registration that is
+# not reliably available at deploy time).
+resource "azurerm_cognitive_deployment" "content_understanding_completion" {
+  count                = var.deploy_foundry ? 1 : 0
+  name                 = "content-understanding-completion"
+  cognitive_account_id = azapi_resource.foundry[0].id
+
+  model {
+    format  = "OpenAI"
+    name    = var.content_understanding_completion_model
+    version = var.content_understanding_completion_model_version
+  }
+
+  sku {
+    name     = "GlobalStandard"
+    capacity = var.content_understanding_model_capacity
+  }
+}
+
+resource "azurerm_cognitive_deployment" "content_understanding_embedding" {
+  count                = var.deploy_foundry ? 1 : 0
+  name                 = "content-understanding-embedding"
+  cognitive_account_id = azapi_resource.foundry[0].id
+
+  model {
+    format  = "OpenAI"
+    name    = var.content_understanding_embedding_model
+    version = var.content_understanding_embedding_model_version
+  }
+
+  sku {
+    name     = "GlobalStandard"
+    capacity = var.content_understanding_model_capacity
+  }
+}
+
 module "foundry_dns_zone" {
   for_each = var.deploy_foundry ? {
     cognitive = "privatelink.cognitiveservices.azure.com"
@@ -519,6 +584,32 @@ resource "azurerm_role_assignment" "logic_foundry" {
   scope                = azapi_resource.foundry[0].id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_logic_app_standard.logic.identity[0].principal_id
+}
+
+# Grants Microsoft Graph "Mail.ReadWrite" application permission to both the
+# Logic App's system-assigned identity and its user-assigned identity, since
+# the ManagedServiceIdentity HTTP action does not pin a specific identity and
+# either may be selected at runtime. Required for the ProcessOutlookInvoice*
+# workflows to poll/mark messages in the mailbox set by outlook_mailbox_user.
+#
+# The identity running `terraform apply` must itself hold Microsoft Graph
+# application permissions `Application.ReadWrite.All` and
+# `AppRoleAssignment.ReadWrite.All` (admin-consented) to create these role
+# assignments. Leave grant_outlook_graph_permissions = false and grant the
+# permission manually if that privilege is not appropriate for the deploying
+# identity.
+resource "azuread_app_role_assignment" "logic_system_identity_outlook_mail" {
+  count               = var.grant_outlook_graph_permissions ? 1 : 0
+  app_role_id         = local.mail_readwrite_app_role_id
+  principal_object_id = azurerm_logic_app_standard.logic.identity[0].principal_id
+  resource_object_id  = data.azuread_service_principal.msgraph[0].object_id
+}
+
+resource "azuread_app_role_assignment" "logic_uami_outlook_mail" {
+  count               = var.grant_outlook_graph_permissions ? 1 : 0
+  app_role_id         = local.mail_readwrite_app_role_id
+  principal_object_id = azurerm_user_assigned_identity.logic_uami.principal_id
+  resource_object_id  = data.azuread_service_principal.msgraph[0].object_id
 }
 
 resource "azurerm_role_assignment" "uami_storage_blob" {

@@ -31,6 +31,11 @@ on:
           - WS2
           - WS3
         default: WS1
+      appServicePlanName:
+        description: Optional App Service plan name override
+        required: false
+        type: string
+        default: ""
       logicAppPublicNetworkAccess:
         description: Keep public HTTPS ingress enabled (set false to create a private endpoint)
         required: true
@@ -76,6 +81,16 @@ on:
         required: true
         type: boolean
         default: false
+      outlookMailboxUser:
+        description: Mailbox UPN/email polled by ProcessOutlookInvoice* workflows (leave empty to skip Outlook processing)
+        required: false
+        type: string
+        default: ""
+      grantOutlookGraphPermissions:
+        description: Grant Microsoft Graph Mail.ReadWrite to the Logic App identities (requires AZURE_CLIENT_ID to hold Application.ReadWrite.All + AppRoleAssignment.ReadWrite.All, admin-consented)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -104,6 +119,7 @@ jobs:
           NAME_PREFIX: ${{ inputs.namePrefix }}
           LOCATION: ${{ inputs.location }}
           LOGIC_APP_SKU: ${{ inputs.logicAppSku }}
+          APP_SERVICE_PLAN_NAME: ${{ inputs.appServicePlanName }}
           LOGIC_APP_PUBLIC_NETWORK_ACCESS: ${{ inputs.logicAppPublicNetworkAccess }}
           ANALYZER: ${{ inputs.contentUnderstandingAnalyzer }}
           DEPLOY_FOUNDRY: ${{ inputs.deployFoundry }}
@@ -115,6 +131,11 @@ jobs:
           APPROVE_STORAGE_EXCEPTION: ${{ inputs.approveAzureFilesSharedKeyException }}
           SSH_PUBLIC_KEY: ${{ secrets.JUMPBOX_SSH_PUBLIC_KEY }}
           SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TFSTATE_RESOURCE_GROUP: ${{ vars.AZURE_TFSTATE_RESOURCE_GROUP }}
+          TFSTATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}
+          TFSTATE_CONTAINER: ${{ vars.AZURE_TFSTATE_CONTAINER }}
+          OUTLOOK_MAILBOX_USER: ${{ inputs.outlookMailboxUser }}
+          GRANT_OUTLOOK_GRAPH_PERMISSIONS: ${{ inputs.grantOutlookGraphPermissions }}
         run: |
           set -euo pipefail
           [[ "$NAME_PREFIX" =~ ^[a-z0-9]{3,7}$ ]] || { echo "namePrefix must be 3-7 lowercase letters or digits"; exit 1; }
@@ -122,16 +143,46 @@ jobs:
             echo "Set JUMPBOX_SSH_PUBLIC_KEY repository secret when deployJumpbox=true."
             exit 1
           fi
+          if [[ -z "${TFSTATE_RESOURCE_GROUP:-}" || -z "${TFSTATE_STORAGE_ACCOUNT:-}" || -z "${TFSTATE_CONTAINER:-}" ]]; then
+            echo "Set repository variables AZURE_TFSTATE_RESOURCE_GROUP, AZURE_TFSTATE_STORAGE_ACCOUNT, and AZURE_TFSTATE_CONTAINER."
+            exit 1
+          fi
 
           az group create --name "$RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
+          az group create --name "$TFSTATE_RESOURCE_GROUP" --location "$RESOURCE_GROUP_LOCATION" --output none
 
-          terraform init -input=false
+          if ! az storage account show --resource-group "$TFSTATE_RESOURCE_GROUP" --name "$TFSTATE_STORAGE_ACCOUNT" --output none 2>/dev/null; then
+            az storage account create \
+              --resource-group "$TFSTATE_RESOURCE_GROUP" \
+              --name "$TFSTATE_STORAGE_ACCOUNT" \
+              --location "$RESOURCE_GROUP_LOCATION" \
+              --sku Standard_LRS \
+              --kind StorageV2 \
+              --https-only true \
+              --min-tls-version TLS1_2 \
+              --allow-blob-public-access false \
+              --output none
+          fi
+
+          ARM_ACCESS_KEY="$(az storage account keys list --resource-group "$TFSTATE_RESOURCE_GROUP" --account-name "$TFSTATE_STORAGE_ACCOUNT" --query '[0].value' --output tsv)"
+          az storage container create \
+            --name "$TFSTATE_CONTAINER" \
+            --account-name "$TFSTATE_STORAGE_ACCOUNT" \
+            --account-key "$ARM_ACCESS_KEY" \
+            --output none
+
+          terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=$TFSTATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TFSTATE_CONTAINER" \
+            -backend-config="key=${RESOURCE_GROUP}.tfstate"
           terraform validate
           terraform plan -input=false \
             -var "subscription_id=$SUBSCRIPTION_ID" \
             -var "resource_group_name=$RESOURCE_GROUP" \
             -var "location=$LOCATION" \
             -var "name_prefix=$NAME_PREFIX" \
+            -var "service_plan_name_override=$APP_SERVICE_PLAN_NAME" \
             -var "logic_app_sku=$LOGIC_APP_SKU" \
             -var "logic_app_public_network_access=$LOGIC_APP_PUBLIC_NETWORK_ACCESS" \
             -var "content_understanding_analyzer=$ANALYZER" \
@@ -143,5 +194,55 @@ jobs:
             -var "private_endpoint_subnet_prefix=$PRIVATE_ENDPOINT_SUBNET_CIDR" \
             -var "azure_files_shared_key_exception_approved=$APPROVE_STORAGE_EXCEPTION" \
             -var "admin_ssh_public_key=$SSH_PUBLIC_KEY" \
+            -var "outlook_mailbox_user=$OUTLOOK_MAILBOX_USER" \
+            -var "grant_outlook_graph_permissions=$GRANT_OUTLOOK_GRAPH_PERMISSIONS" \
             -out=tfplan
           terraform apply -input=false -auto-approve tfplan
+
+          {
+            echo "logic_app_name=$(terraform output -raw logic_app_name)"
+            echo "logic_app_url=$(terraform output -raw logic_app_url)"
+          } >> "$GITHUB_OUTPUT"
+        id: tf
+
+      - name: Deploy Logic App workflow package
+        if: inputs.logicAppPublicNetworkAccess == true
+        shell: bash
+        env:
+          RESOURCE_GROUP: ${{ inputs.resourceGroup }}
+          LOGIC_APP_NAME: ${{ steps.tf.outputs.logic_app_name }}
+          LOGIC_APP_URL: ${{ steps.tf.outputs.logic_app_url }}
+        run: |
+          set -euo pipefail
+          sleep 60
+          mkdir -p "$RUNNER_TEMP/logicapp-package"
+          cp -R logicapp/. "$RUNNER_TEMP/logicapp-package/"
+          find "$RUNNER_TEMP/logicapp-package" -type f -name local.settings.json -delete
+          (cd "$RUNNER_TEMP/logicapp-package" && zip -qr "$RUNNER_TEMP/logicapp.zip" .)
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$LOGIC_APP_NAME" \
+            --src-path "$RUNNER_TEMP/logicapp.zip" \
+            --type zip \
+            --async false
+
+          host_ready=false
+          for attempt in {1..20}; do
+            if status=$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$LOGIC_APP_URL/"); then
+              if [[ "$status" != "503" && "$status" != "000" ]]; then
+                echo "Logic App host responded with HTTP $status"
+                host_ready=true
+                break
+              fi
+            fi
+            sleep 15
+          done
+          if [[ "$host_ready" != "true" ]]; then
+            echo "Logic App endpoint did not become healthy. Check Azure Files content-share settings, private DNS, TCP 445 reachability, and Storage shared-key/network settings."
+            exit 1
+          fi
+
+      - name: Skip package deploy for private ingress
+        if: inputs.logicAppPublicNetworkAccess == false
+        shell: bash
+        run: echo "Private ingress is enabled. The hosted runner cannot publish or probe the app; deploy and verify the workflow from a VNet-connected runner or machine."

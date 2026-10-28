@@ -58,6 +58,21 @@ output "foundry_project_endpoint" {
   value       = var.deploy_foundry ? "https://${azapi_resource.foundry[0].name}.services.ai.azure.com/api/projects/${azapi_resource.foundry_project[0].name}" : ""
 }
 
+output "content_understanding_completion_deployment_name" {
+  description = "Name of the chat completion model deployment used by Content Understanding analyzers, when deploy_foundry is enabled."
+  value       = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_completion[0].name : ""
+}
+
+output "content_understanding_embedding_deployment_name" {
+  description = "Name of the embedding model deployment used by Content Understanding analyzers, when deploy_foundry is enabled."
+  value       = var.deploy_foundry ? azurerm_cognitive_deployment.content_understanding_embedding[0].name : ""
+}
+
+output "outlook_graph_permissions_granted" {
+  description = "Whether Microsoft Graph Mail.ReadWrite was granted to the Logic App's identities."
+  value       = var.grant_outlook_graph_permissions
+}
+
 output "jumpbox_name" {
   description = "Jump box VM name when deploy_jumpbox is enabled."
   value       = var.deploy_jumpbox ? azurerm_linux_virtual_machine.jumpbox[0].name : ""

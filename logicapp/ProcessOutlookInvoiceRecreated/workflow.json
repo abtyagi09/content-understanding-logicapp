@@ -1,0 +1,286 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "triggers": {
+      "Poll_outlook_inbox": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 2
+        }
+      }
+    },
+    "actions": {
+      "List_unread_emails_with_attachments": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/mailFolders/Inbox/messages?$filter=isRead eq false and hasAttachments eq true&$top=10&$select=id,subject,receivedDateTime')}",
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://graph.microsoft.com/"
+          }
+        },
+        "runAfter": {}
+      },
+      "For_each_email": {
+        "type": "Foreach",
+        "foreach": "@body('List_unread_emails_with_attachments')?['value']",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        },
+        "actions": {
+          "Get_attachments": {
+            "type": "Http",
+            "inputs": {
+              "method": "GET",
+              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']), '/attachments')}",
+              "authentication": {
+                "type": "ManagedServiceIdentity",
+                "audience": "https://graph.microsoft.com/"
+              }
+            },
+            "runAfter": {}
+          },
+          "Filter_invoice_attachments": {
+            "type": "Query",
+            "inputs": {
+              "from": "@coalesce(body('Get_attachments')?['value'], createArray())",
+              "where": "@and(equals(item()?['isInline'], false), or(equals(item()?['@odata.type'], '#microsoft.graph.fileAttachment'), contains(toLower(coalesce(item()?['name'], '')), 'invoice'), endsWith(toLower(coalesce(item()?['name'], '')), '.pdf'), equals(toLower(coalesce(item()?['contentType'], '')), 'application/pdf')))"
+            },
+            "runAfter": {
+              "Get_attachments": [
+                "Succeeded"
+              ]
+            }
+          },
+          "If_invoice_attachments_found": {
+            "type": "If",
+            "expression": "@greater(length(coalesce(outputs('Filter_invoice_attachments')?['body'], createArray())), 0)",
+            "actions": {
+              "For_each_invoice_attachment": {
+                "type": "Foreach",
+                "foreach": "@body('Filter_invoice_attachments')",
+                "runtimeConfiguration": {
+                  "concurrency": {
+                    "repetitions": 1
+                  }
+                },
+                "actions": {
+                  "Get_attachment_content": {
+                    "type": "Http",
+                    "inputs": {
+                      "method": "GET",
+                      "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']), '/attachments/', uriComponent(item()?['id']))}",
+                      "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "audience": "https://graph.microsoft.com/"
+                      }
+                    },
+                    "runAfter": {},
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Upload_invoice_to_documents_container": {
+                    "type": "Http",
+                    "inputs": {
+                      "method": "PUT",
+                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), '/', appsetting('AZURE_STORAGE_CONTAINER_NAME'), '/outlook/', formatDateTime(utcNow(),'yyyyMMdd'), '/', guid(), '-', item()?['name'])}",
+                      "headers": {
+                        "Content-Type": "application/octet-stream",
+                        "x-ms-blob-type": "BlockBlob",
+                        "x-ms-version": "2023-11-03"
+                      },
+                      "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "audience": "https://storage.azure.com/"
+                      },
+                      "body": "@base64ToBinary(body('Get_attachment_content')?['contentBytes'])"
+                    },
+                    "runAfter": {
+                      "Get_attachment_content": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Create_Content_Understanding_analysis": {
+                    "type": "Http",
+                    "inputs": {
+                      "method": "POST",
+                      "uri": "@{appsetting('CONTENT_UNDERSTANDING_ENDPOINT')}/contentunderstanding/analyzers/@{appsetting('CONTENT_UNDERSTANDING_MODEL')}:analyze?api-version=2025-11-01",
+                      "headers": {
+                        "Content-Type": "application/json"
+                      },
+                      "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "audience": "https://cognitiveservices.azure.com/"
+                      },
+                      "body": {
+                        "inputs": [
+                          {
+                            "data": "@{body('Get_attachment_content')?['contentBytes']}",
+                            "name": "@{item()?['name']}"
+                          }
+                        ],
+                        "modelDeployments": {
+                          "prebuilt-analyzer-completion": "@{appsetting('CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT')}",
+                          "prebuilt-analyzer-completion-mini": "@{appsetting('CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT')}",
+                          "prebuilt-analyzer-embedding": "@{appsetting('CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT')}"
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Upload_invoice_to_documents_container": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  },
+                  "Poll_until_analysis_complete": {
+                    "type": "Until",
+                    "expression": "@or(equals(body('Get_analysis_result')?['status'], 'Succeeded'), equals(body('Get_analysis_result')?['status'], 'Failed'))",
+                    "limit": {
+                      "count": 60,
+                      "timeout": "PT10M"
+                    },
+                    "actions": {
+                      "Get_analysis_result": {
+                        "type": "Http",
+                        "inputs": {
+                          "method": "GET",
+                          "uri": "@{outputs('Create_Content_Understanding_analysis')?['headers']?['operation-location']}",
+                          "authentication": {
+                            "type": "ManagedServiceIdentity",
+                            "audience": "https://cognitiveservices.azure.com/"
+                          }
+                        },
+                        "runAfter": {},
+                        "runtimeConfiguration": {
+                          "secureData": {
+                            "properties": [
+                              "inputs",
+                              "outputs"
+                            ]
+                          }
+                        }
+                      },
+                      "Wait_before_next_analysis_poll": {
+                        "type": "Wait",
+                        "inputs": {
+                          "interval": {
+                            "count": 5,
+                            "unit": "Second"
+                          }
+                        },
+                        "runAfter": {
+                          "Get_analysis_result": [
+                            "Succeeded"
+                          ]
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Create_Content_Understanding_analysis": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Store_analysis_result": {
+                    "type": "Http",
+                    "inputs": {
+                      "method": "PUT",
+                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), '/', appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/outlook-', workflow().run.name, '-', guid(), '.json')}",
+                      "headers": {
+                        "Content-Type": "application/json",
+                        "x-ms-blob-type": "BlockBlob",
+                        "x-ms-version": "2023-11-03"
+                      },
+                      "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "audience": "https://storage.azure.com/"
+                      },
+                      "body": "@body('Get_analysis_result')"
+                    },
+                    "runAfter": {
+                      "Poll_until_analysis_complete": [
+                        "Succeeded"
+                      ]
+                    },
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "runAfter": {}
+              },
+              "Mark_email_as_read": {
+                "type": "Http",
+                "inputs": {
+                  "method": "PATCH",
+                  "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']))}",
+                  "headers": {
+                    "Content-Type": "application/json"
+                  },
+                  "authentication": {
+                    "type": "ManagedServiceIdentity",
+                    "audience": "https://graph.microsoft.com/"
+                  },
+                  "body": {
+                    "isRead": true
+                  }
+                },
+                "runAfter": {
+                  "For_each_invoice_attachment": [
+                    "Succeeded"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {
+              "Filter_invoice_attachments": [
+                "Succeeded"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "List_unread_emails_with_attachments": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}
