@@ -40,6 +40,42 @@ region-specific preview feature flag that isn't reliably available at deploy
 time). Instead, the workflow passes `modelDeployments` inline on every analyze
 request, pointing at the Terraform-managed model deployments.
 
+## Recommended rollout: start minimal, add AI processing later
+
+Every "extra" piece of this solution -- Foundry, Content Understanding model
+deployments, and the Outlook Graph permission grant -- is independently
+optional and defaults to **off**. This lets you stand up just the private
+network and the Logic App skeleton first, validate it, and layer on AI
+processing in a second `terraform apply` once you're ready -- with zero
+disruption to what's already running.
+
+**Phase 1 -- infrastructure only, everything private.** Using
+`terraform.tfvars.example` unmodified (only `subscription_id`,
+`resource_group_name`, and `location` need values) deploys exactly this and
+nothing else:
+
+- VNet with infra, private-endpoint, and jump box subnets
+- Private Storage account (`documents`/`results` containers + Azure Files
+  share), private endpoints on blob/file/queue/table, matching private DNS
+  zones
+- Logic App Standard site behind its own private endpoint
+  (`logic_app_public_network_access = false` by default) -- no public HTTPS
+  ingress anywhere
+- No Foundry account, no Content Understanding models, no Key Vault, no Graph
+  permissions
+
+This was validated end-to-end on a clean resource group: 43 resources, all
+five private endpoints `Approved`, `publicNetworkAccess` confirmed `Disabled`
+on the Logic App, and an external `curl` against the Logic App's hostname
+returned `403 Ip Forbidden` (proof it isn't reachable from the internet).
+
+**Phase 2 -- add Content Understanding processing, when ready.** Set
+`deploy_foundry = true`, `outlook_mailbox_user = "<mailbox UPN>"`, and
+`grant_outlook_graph_permissions = true` in the same `terraform.tfvars`, then
+re-apply. Terraform adds the Foundry account/project, its private endpoint,
+the completion/embedding model deployments, and the Graph role assignments --
+it does not touch or recreate anything from Phase 1.
+
 ## Prerequisites
 
 - Azure subscription/region with Logic Apps Standard, Private Endpoints, and
