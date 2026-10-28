@@ -1,0 +1,95 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "scout",
+  "elements": [
+    {"type":"text","id":"title","x":230,"y":8,"width":680,"height":40,"text":"Content Understanding Logic App \u2014 Spoke Architecture (Terraform)","fontSize":20,"fontFamily":2,"strokeColor":"#1e1e1e","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"diamond","id":"spoke_icon","x":65,"y":28,"width":22,"height":22,"strokeColor":"#495057","backgroundColor":"#dee2e6","fillStyle":"solid","strokeWidth":1},
+    {"type":"text","id":"spoke_label","x":94,"y":26,"width":70,"height":28,"text":"Spoke","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"spoke_box","x":55,"y":55,"width":1090,"height":660,"strokeColor":"#495057","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roundness":{"type":3}},
+
+    {"type":"line","id":"dash_left","x":60,"y":0,"width":0,"height":55,"strokeColor":"#868e96","strokeWidth":1,"strokeStyle":"dashed","points":[[0,0],[0,55]]},
+    {"type":"line","id":"dash_right","x":1140,"y":0,"width":0,"height":55,"strokeColor":"#868e96","strokeWidth":1,"strokeStyle":"dashed","points":[[0,0],[0,55]]},
+
+    {"type":"diamond","id":"aad_icon","x":90,"y":78,"width":36,"height":36,"strokeColor":"#5c2d91","backgroundColor":"#e8daef","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"aad_icon_t"}]},
+    {"type":"text","id":"aad_icon_t","x":90,"y":88,"width":36,"height":16,"text":"AD","fontSize":12,"fontFamily":2,"strokeColor":"#000000","containerId":"aad_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"aad_label","x":136,"y":86,"width":220,"height":28,"text":"Microsoft Entra ID","fontSize":14,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"vnet_icon","x":140,"y":148,"width":32,"height":32,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3},
+      "boundElements":[{"type":"text","id":"vnet_icon_t"}]},
+    {"type":"text","id":"vnet_icon_t","x":140,"y":156,"width":32,"height":16,"text":"VN","fontSize":11,"fontFamily":2,"strokeColor":"#000000","containerId":"vnet_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"vnet_label","x":180,"y":154,"width":260,"height":28,"text":"Virtual Network (cuapp-vnet)","fontSize":14,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+
+    {"type":"diamond","id":"infra_tab_icon","x":185,"y":182,"width":22,"height":22,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1},
+    {"type":"text","id":"infra_tab_label","x":212,"y":180,"width":140,"height":26,"text":"Infra Subnet","fontSize":14,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+    {"type":"rectangle","id":"infra_box","x":170,"y":205,"width":560,"height":240,"strokeColor":"#1864ab","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roundness":{"type":3}},
+
+    {"type":"rectangle","id":"storage_icon","x":200,"y":245,"width":48,"height":48,"strokeColor":"#0c8599","backgroundColor":"#99e9f2","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3},
+      "boundElements":[{"type":"text","id":"storage_icon_t"}]},
+    {"type":"text","id":"storage_icon_t","x":200,"y":257,"width":48,"height":22,"text":"ST","fontSize":16,"fontFamily":2,"strokeColor":"#000000","containerId":"storage_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"storage_label","x":180,"y":300,"width":110,"height":55,"text":"Storage\nAccount\n(Blob/File/\nQueue/Table)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"logicapp_icon","x":335,"y":245,"width":48,"height":48,"strokeColor":"#5c2d91","backgroundColor":"#e8daef","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3},
+      "boundElements":[{"type":"text","id":"logicapp_icon_t"}]},
+    {"type":"text","id":"logicapp_icon_t","x":335,"y":257,"width":48,"height":22,"text":"LA","fontSize":16,"fontFamily":2,"strokeColor":"#000000","containerId":"logicapp_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"logicapp_label","x":315,"y":300,"width":110,"height":40,"text":"Logic App\nStandard","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"ellipse","id":"kv_icon","x":475,"y":245,"width":48,"height":48,"strokeColor":"#e67700","backgroundColor":"#fff3bf","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"kv_icon_t"}]},
+    {"type":"text","id":"kv_icon_t","x":475,"y":257,"width":48,"height":22,"text":"KV","fontSize":16,"fontFamily":2,"strokeColor":"#000000","containerId":"kv_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"kv_label","x":450,"y":300,"width":110,"height":40,"text":"Key Vault\n(optional)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"foundry_icon","x":615,"y":245,"width":48,"height":48,"strokeColor":"#862e9c","backgroundColor":"#f3d9fa","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3},
+      "boundElements":[{"type":"text","id":"foundry_icon_t"}]},
+    {"type":"text","id":"foundry_icon_t","x":615,"y":257,"width":48,"height":22,"text":"AI","fontSize":16,"fontFamily":2,"strokeColor":"#000000","containerId":"foundry_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"foundry_label","x":585,"y":300,"width":120,"height":55,"text":"AI Foundry /\nContent\nUnderstanding\n(optional)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"diamond","id":"jb_tab_icon","x":785,"y":182,"width":22,"height":22,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1},
+    {"type":"text","id":"jb_tab_label","x":812,"y":180,"width":200,"height":26,"text":"Jump Box Subnet (optional)","fontSize":14,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+    {"type":"rectangle","id":"jb_box","x":770,"y":205,"width":300,"height":240,"strokeColor":"#1864ab","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roundness":{"type":3}},
+
+    {"type":"rectangle","id":"vm_icon","x":885,"y":270,"width":60,"height":60,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3},
+      "boundElements":[{"type":"text","id":"vm_icon_t"}]},
+    {"type":"text","id":"vm_icon_t","x":885,"y":288,"width":60,"height":24,"text":"VM","fontSize":16,"fontFamily":2,"strokeColor":"#000000","containerId":"vm_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"vm_label","x":850,"y":340,"width":130,"height":40,"text":"Ubuntu Jump Box\n(SSH key auth)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"diamond","id":"pe_tab_icon","x":185,"y":467,"width":22,"height":22,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1},
+    {"type":"text","id":"pe_tab_label","x":212,"y":465,"width":220,"height":26,"text":"Private Endpoint Subnet","fontSize":14,"fontFamily":2,"strokeColor":"#000000","textAlign":"left","verticalAlign":"top"},
+    {"type":"rectangle","id":"pe_box","x":170,"y":490,"width":560,"height":195,"strokeColor":"#1864ab","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roundness":{"type":3}},
+
+    {"type":"diamond","id":"pe_storage_icon","x":206,"y":535,"width":40,"height":40,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"pe_storage_icon_t"}]},
+    {"type":"text","id":"pe_storage_icon_t","x":206,"y":548,"width":40,"height":16,"text":"PE","fontSize":11,"fontFamily":2,"strokeColor":"#000000","containerId":"pe_storage_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"pe_storage_label","x":166,"y":585,"width":120,"height":70,"text":"Private Endpoint\n(blob, file,\nqueue, table)","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"diamond","id":"pe_kv_icon","x":479,"y":535,"width":40,"height":40,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"pe_kv_icon_t"}]},
+    {"type":"text","id":"pe_kv_icon_t","x":479,"y":548,"width":40,"height":16,"text":"PE","fontSize":11,"fontFamily":2,"strokeColor":"#000000","containerId":"pe_kv_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"pe_kv_label","x":444,"y":585,"width":110,"height":45,"text":"Private Endpoint\n(Key Vault)","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"diamond","id":"pe_foundry_icon","x":614,"y":535,"width":40,"height":40,"strokeColor":"#1864ab","backgroundColor":"#a5d8ff","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"pe_foundry_icon_t"}]},
+    {"type":"text","id":"pe_foundry_icon_t","x":614,"y":548,"width":40,"height":16,"text":"PE","fontSize":11,"fontFamily":2,"strokeColor":"#000000","containerId":"pe_foundry_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"pe_foundry_label","x":579,"y":585,"width":110,"height":45,"text":"Private Endpoint\n(Foundry)","fontSize":11,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"line","id":"conn_storage","x":224,"y":293,"width":0,"height":242,"strokeColor":"#495057","strokeWidth":1,"points":[[0,0],[0,242]]},
+    {"type":"line","id":"conn_kv","x":499,"y":293,"width":0,"height":242,"strokeColor":"#495057","strokeWidth":1,"points":[[0,0],[0,242]]},
+    {"type":"line","id":"conn_foundry","x":639,"y":293,"width":0,"height":242,"strokeColor":"#495057","strokeWidth":1,"points":[[0,0],[0,242]]},
+
+    {"type":"ellipse","id":"github_icon","x":1005,"y":598,"width":44,"height":44,"strokeColor":"#1e1e1e","backgroundColor":"#f3f2f1","fillStyle":"solid","strokeWidth":1,
+      "boundElements":[{"type":"text","id":"github_icon_t"}]},
+    {"type":"text","id":"github_icon_t","x":1005,"y":612,"width":44,"height":18,"text":"GH","fontSize":13,"fontFamily":2,"strokeColor":"#000000","containerId":"github_icon","textAlign":"center","verticalAlign":"middle"},
+    {"type":"text","id":"github_label","x":955,"y":648,"width":150,"height":55,"text":"GitHub Actions\nDeploy Terraform\n(AVM)","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"rectangle","id":"pc_monitor","x":15,"y":320,"width":50,"height":34,"strokeColor":"#495057","backgroundColor":"#dee2e6","fillStyle":"solid","strokeWidth":1,"roundness":{"type":3}},
+    {"type":"rectangle","id":"pc_stand","x":32,"y":354,"width":16,"height":8,"strokeColor":"#495057","backgroundColor":"#dee2e6","fillStyle":"solid","strokeWidth":1},
+    {"type":"text","id":"pc_label","x":0,"y":368,"width":90,"height":40,"text":"Operator /\nCI runner","fontSize":12,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+
+    {"type":"line","id":"client_to_vnet","x":65,"y":337,"width":75,"height":27,"strokeColor":"#495057","strokeWidth":1,"points":[[0,0],[75,-27]]},
+    {"type":"line","id":"client_to_storage","x":65,"y":337,"width":159,"height":100,"strokeColor":"#495057","strokeWidth":1,"strokeStyle":"dashed","points":[[0,0],[159,-100]]}
+  ],
+  "appState": {"viewBackgroundColor": "#ffffff"}
+}

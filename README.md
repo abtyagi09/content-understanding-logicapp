@@ -15,6 +15,16 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 
 ![Spoke architecture diagram](spoke-architecture.png)
 
+### Terraform (AVM) spoke architecture
+
+The diagram below reflects the Terraform deployment path, including the
+Content Understanding model deployments, the Outlook mailbox permission
+grant, and the automated workflow package publish added to
+`deploy-terraform.yml`. The editable source is
+[`spoke-architecture.excalidraw`](spoke-architecture.excalidraw).
+
+![Terraform spoke architecture diagram](spoke-architecture-new.png)
+
 ## Architecture
 
 | Diagram component | Implementation |
@@ -138,6 +148,32 @@ For Terraform workflow state persistence, also set:
 
 `Deploy Terraform (AVM)` uses these values to initialize the `azurerm` backend and
 stores state in `${resourceGroup}.tfstate` blobs so state is reused across runs.
+When `deployFoundry` is true, it also deploys the completion (`gpt-5.2`) and
+embedding (`text-embedding-3-large`) model deployments the Content Understanding
+analyzer requires via `azurerm_cognitive_deployment`, wires their names into the
+Logic App's `CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT` and
+`CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT` app settings, and the sample
+workflows pass those deployments inline via `modelDeployments` on every analyze
+request. The resource-level `PATCH /contentunderstanding/defaults` endpoint is
+intentionally not used, since it depends on a region-specific preview feature
+registration that isn't reliably available at deploy time. After `terraform
+apply`, the workflow also packages and publishes `logicapp/` with `az webapp
+deploy` and polls the host until healthy, mirroring `deploy-bicep.yml`; when
+`logicAppPublicNetworkAccess` is false, package publish and host probing are
+skipped and must be run from a VNet-connected runner or machine.
+
+Set the `outlookMailboxUser` input to the mailbox UPN/email the
+`ProcessOutlookInvoice*` workflows should poll; this sets `OUTLOOK_MAILBOX_USER`.
+Set `grantOutlookGraphPermissions` to true to have Terraform grant Microsoft
+Graph `Mail.ReadWrite` application permission to both the Logic App's
+system-assigned identity and its user-assigned identity (the `ManagedServiceIdentity`
+HTTP actions in the workflows don't pin a specific identity, so both are granted
+to remove ambiguity). This requires `AZURE_CLIENT_ID` to itself hold Microsoft
+Graph application permissions `Application.ReadWrite.All` and
+`AppRoleAssignment.ReadWrite.All`, admin-consented, since Terraform creates the
+role assignment via the `azuread` provider. Leave it false and grant the
+`Mail.ReadWrite` role manually when that privilege isn't appropriate for the
+deploying identity.
 
 Run `.github\workflows\deploy-bicep.yml` manually and supply
 the resource group, region, and prefix. Set the `JUMPBOX_SSH_PUBLIC_KEY` repository
@@ -151,7 +187,10 @@ infrastructure, then deploys the Logic App package using Azure CLI and OIDC when
 ingress is enabled. Set `logicAppPublicNetworkAccess` to false to add the private
 endpoint; in that mode, the hosted runner skips package deployment and host probing.
 Publish and verify from a VNet-connected runner or machine. The workflow does not use a
-publish profile or client secret.
+publish profile or client secret. Model deployment, Outlook mailbox configuration, and
+Graph permission automation described above are specific to the Terraform workflow; the
+Bicep path still requires the manual `scripts\configure-model-defaults.ps1` and Graph
+consent steps described later in this document.
 
 ## Network and authentication boundaries
 
