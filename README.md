@@ -13,8 +13,6 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 
 ## Architecture diagram
 
-![Spoke architecture diagram](spoke-architecture.png)
-
 ### Terraform (AVM) spoke architecture and request flow
 
 The diagram below reflects the Terraform deployment path (spoke VNet,
