@@ -36,7 +36,7 @@
             "type": "Http",
             "inputs": {
               "method": "GET",
-              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', items('For_each_email')?['id'], '/attachments?$select=id,name,contentType,size,isInline,contentBytes')}",
+              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']), '/attachments?$select=id,name,contentType,size,isInline,contentBytes')}",
               "authentication": {
                 "type": "ManagedServiceIdentity",
                 "audience": "https://graph.microsoft.com/"
@@ -80,7 +80,7 @@
                     "type": "Http",
                     "inputs": {
                       "method": "PUT",
-                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), appsetting('AZURE_STORAGE_CONTAINER_NAME'), '/outlook/', formatDateTime(utcNow(),'yyyyMMdd'), '/', guid(), '-', item()?['name'])}",
+                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), '/', appsetting('AZURE_STORAGE_CONTAINER_NAME'), '/outlook/', formatDateTime(utcNow(),'yyyyMMdd'), '/', guid(), '-', item()?['name'])}",
                       "headers": {
                         "Content-Type": "application/octet-stream",
                         "x-ms-blob-type": "BlockBlob",
@@ -109,7 +109,7 @@
                 "type": "Http",
                 "inputs": {
                   "method": "PATCH",
-                  "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', items('For_each_email')?['id'])}",
+                  "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']))}",
                   "headers": {
                     "Content-Type": "application/json"
                   },
