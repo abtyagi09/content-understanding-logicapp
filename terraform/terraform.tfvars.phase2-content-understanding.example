@@ -1,0 +1,84 @@
+# Phase 2 -- everything from Phase 1, plus Azure AI Foundry, the Content
+# Understanding project, its completion/embedding model deployments, and
+# the Microsoft Graph mailbox permission grant. Apply this after Phase 1
+# (or directly, if you're not phasing the rollout) -- it only adds
+# resources on top of what Phase 1 deploys; nothing from Phase 1 is
+# recreated or disrupted.
+#
+# Copy this file to terraform.tfvars to deploy Phase 2:
+#   cp terraform.tfvars.phase2-content-understanding.example terraform.tfvars
+# Then set outlook_mailbox_user below to your real mailbox before applying.
+#
+# Prerequisites for this phase (see README "Prerequisites"):
+# - Content Understanding availability/quota in your region
+# - The deploying identity needs Microsoft Graph application permissions
+#   Application.ReadWrite.All and AppRoleAssignment.ReadWrite.All
+#   (admin-consented), since grant_outlook_graph_permissions = true below
+
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+resource_group_name  = "rg-content-understanding"
+location             = "westus3"
+name_prefix          = "cuapp"
+logic_app_name_override = ""
+storage_account_name_override = ""
+user_assigned_identity_name_override = ""
+application_insights_name_override = ""
+log_analytics_workspace_name_override = ""
+
+logic_app_sku                     = "WS1"
+# Logic App sits behind a private endpoint by default (like Storage, Key
+# Vault, and Foundry). Publishing the workflow package and health-checking
+# the host then requires a VNet-connected machine -- enable deploy_jumpbox
+# below for one, or set this to true if you need a non-VNet client (for
+# example the hosted GitHub Actions runner) to publish/verify directly.
+logic_app_public_network_access   = false
+existing_service_plan_id          = ""
+existing_vnet_id                  = ""
+existing_infra_subnet_id          = ""
+existing_private_endpoint_subnet_id = ""
+existing_jumpbox_subnet_id        = ""
+existing_logicapp_private_dns_zone_id = ""
+existing_storage_private_dns_zone_ids = {}
+content_understanding_analyzer    = "prebuilt-invoice"
+outlook_mailbox_user              = "invoices@yourtenant.onmicrosoft.com"  # REQUIRED: mailbox for the Logic App to poll
+deploy_foundry                    = true   # Phase 2: provisions Foundry account + Content Understanding project
+deploy_key_vault                  = false
+# Set true (with admin_ssh_public_key below) for a private jump box to
+# publish/verify the Logic App when logic_app_public_network_access = false.
+deploy_jumpbox                    = false
+admin_ssh_public_key              = ""
+
+# Content Understanding model deployments (only used when deploy_foundry = true).
+# Defaults match a prebuilt-invoice-compatible completion + embedding model; override
+# if your region/quota requires a different supported model (see
+# GET /contentunderstanding/analyzers/{id} -> supportedModels for the allowed list).
+# Set deploy_content_understanding_models = false to create the Foundry account and
+# project without these two model deployments -- useful if you'll manage model
+# deployments separately (different quota/region, or reusing existing deployments).
+deploy_content_understanding_models            = true
+content_understanding_completion_model         = "gpt-5.2"
+content_understanding_completion_model_version = "2025-12-11"
+content_understanding_embedding_model          = "text-embedding-3-large"
+content_understanding_embedding_model_version  = "1"
+content_understanding_model_capacity           = 10
+
+# Set true to have Terraform grant Microsoft Graph Mail.ReadWrite to the Logic App's
+# identities so it can poll/mark messages in outlook_mailbox_user. Requires the
+# identity running `terraform apply` to hold Microsoft Graph application permissions
+# Application.ReadWrite.All and AppRoleAssignment.ReadWrite.All (admin-consented).
+grant_outlook_graph_permissions   = true   # Phase 2: requires admin-consented Graph permissions, see Prerequisites
+
+vnet_address_prefix             = "10.50.0.0/16"
+infra_subnet_prefix             = "10.50.1.0/26"
+jumpbox_subnet_prefix           = "10.50.2.0/24"
+private_endpoint_subnet_prefix  = "10.50.3.0/24"
+
+azure_files_shared_key_exception_approved = false
+storage_network_default_action             = "Deny"
+content_share_name                         = "logicapp-content"
+content_share_quota_gb                     = 100
+existing_log_analytics_workspace_id        = ""
+
+tags = {
+  environment = "dev"
+}

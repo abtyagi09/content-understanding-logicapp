@@ -63,7 +63,11 @@ try {
     )
     Get-ChildItem -LiteralPath $terraformSource -Filter '*.tf' -File | Copy-Item -Destination $terraformDestination
     Copy-Item -LiteralPath (Join-Path $terraformSource '.terraform.lock.hcl') -Destination $terraformDestination
-    foreach ($name in @('terraform.tfvars.example')) {
+    foreach ($name in @(
+        'terraform.tfvars.example',
+        'terraform.tfvars.phase1-private-infra.example',
+        'terraform.tfvars.phase2-content-understanding.example'
+    )) {
         $source = Join-Path $terraformSource $name
         if ((Test-Path -LiteralPath $source) -and ($terraformExcludeNames -notcontains $name)) {
             Copy-Item -LiteralPath $source -Destination $terraformDestination

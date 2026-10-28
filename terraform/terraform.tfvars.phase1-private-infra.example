@@ -1,0 +1,15 @@
+# Phase 1 -- private infrastructure only. These are the only two values
+# that must be set; every other variable already defaults to the private,
+# minimal configuration validated for this phase (no Foundry, no Content
+# Understanding models, no Key Vault, no jump box, no Graph permissions,
+# Logic App private endpoint enabled).
+#
+# Copy this file to terraform.tfvars to deploy Phase 1:
+#   cp terraform.tfvars.phase1-private-infra.example terraform.tfvars
+#
+# To customize names, networking ranges, SKUs, or move to Phase 2 (enable
+# Content Understanding), see terraform.tfvars.phase2-content-understanding.example
+# or the full terraform/variables.tf for every available variable and its default.
+
+subscription_id     = "00000000-0000-0000-0000-000000000000"
+resource_group_name = "rg-content-understanding"

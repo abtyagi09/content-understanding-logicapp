@@ -49,10 +49,11 @@ network and the Logic App skeleton first, validate it, and layer on AI
 processing in a second `terraform apply` once you're ready -- with zero
 disruption to what's already running.
 
-**Phase 1 -- infrastructure only, everything private.** Using
-`terraform.tfvars.example` unmodified (only `subscription_id`,
-`resource_group_name`, and `location` need values) deploys exactly this and
-nothing else:
+**Phase 1 -- infrastructure only, everything private.**
+`terraform.tfvars.phase1-private-infra.example` is trimmed to the two values
+that must be set (`subscription_id`, `resource_group_name`); every other
+variable already defaults to this minimal, private configuration. Copy it to
+`terraform.tfvars` to deploy exactly this and nothing else:
 
 - VNet with infra, private-endpoint, and jump box subnets
 - Private Storage account (`documents`/`results` containers + Azure Files
@@ -69,12 +70,25 @@ five private endpoints `Approved`, `publicNetworkAccess` confirmed `Disabled`
 on the Logic App, and an external `curl` against the Logic App's hostname
 returned `403 Ip Forbidden` (proof it isn't reachable from the internet).
 
-**Phase 2 -- add Content Understanding processing, when ready.** Set
-`deploy_foundry = true`, `outlook_mailbox_user = "<mailbox UPN>"`, and
-`grant_outlook_graph_permissions = true` in the same `terraform.tfvars`, then
-re-apply. Terraform adds the Foundry account/project, its private endpoint,
-the completion/embedding model deployments, and the Graph role assignments --
-it does not touch or recreate anything from Phase 1.
+**Phase 2 -- add Content Understanding processing, when ready.**
+`terraform.tfvars.phase2-content-understanding.example` has `deploy_foundry`,
+`deploy_content_understanding_models`, and `grant_outlook_graph_permissions`
+already set `true` -- copy it to `terraform.tfvars` (over the Phase 1 file,
+in the same working directory/state), set `outlook_mailbox_user` to your real
+mailbox, and re-apply. Terraform adds the Foundry account/project, its
+private endpoint, the completion/embedding model deployments, and the Graph
+role assignments -- it does not touch or recreate anything from Phase 1.
+
+This was also validated end-to-end on a clean resource group: 59 resources,
+all six private endpoints (including the new Foundry one) `Approved`, the
+Foundry account's `publicNetworkAccess` confirmed `Disabled`, both model
+deployments (`gpt-5.2` completion, `text-embedding-3-large` embedding)
+present, the Graph `Mail.ReadWrite` role assignment confirmed on the Logic
+App's identity, and the workflow package published and running successfully.
+
+A full `terraform.tfvars.example` with every variable documented is also
+provided if you'd rather build your own `terraform.tfvars` from scratch
+instead of starting from one of the two phase files above.
 
 ## Prerequisites
 
@@ -114,7 +128,7 @@ $key = az storage account keys list --resource-group $tfstateResourceGroup `
 az storage container create --name $tfstateContainer --account-name $tfstateStorageAccount --account-key $key
 
 cd terraform
-cp terraform.tfvars.example terraform.tfvars   # edit values for your environment
+cp terraform.tfvars.phase1-private-infra.example terraform.tfvars   # or .phase2-content-understanding.example, or build your own from terraform.tfvars.example
 
 terraform init -backend-config="resource_group_name=$tfstateResourceGroup" `
   -backend-config="storage_account_name=$tfstateStorageAccount" `
