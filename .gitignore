@@ -4,6 +4,7 @@
 *.publish.xml
 logicapp-package.zip
 customer-deployment.zip
+terraform-customer-deployment.zip
 
 # Terraform local working state and scratch artifacts (state can contain
 # secrets; plan files and .tfdata-* directories are local debugging scratch)

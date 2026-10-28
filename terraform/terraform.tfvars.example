@@ -24,6 +24,22 @@ deploy_key_vault                  = false
 deploy_jumpbox                    = false
 admin_ssh_public_key              = ""
 
+# Content Understanding model deployments (only used when deploy_foundry = true).
+# Defaults match a prebuilt-invoice-compatible completion + embedding model; override
+# if your region/quota requires a different supported model (see
+# GET /contentunderstanding/analyzers/{id} -> supportedModels for the allowed list).
+content_understanding_completion_model         = "gpt-5.2"
+content_understanding_completion_model_version = "2025-12-11"
+content_understanding_embedding_model          = "text-embedding-3-large"
+content_understanding_embedding_model_version  = "1"
+content_understanding_model_capacity           = 10
+
+# Set true to have Terraform grant Microsoft Graph Mail.ReadWrite to the Logic App's
+# identities so it can poll/mark messages in outlook_mailbox_user. Requires the
+# identity running `terraform apply` to hold Microsoft Graph application permissions
+# Application.ReadWrite.All and AppRoleAssignment.ReadWrite.All (admin-consented).
+grant_outlook_graph_permissions   = false
+
 vnet_address_prefix             = "10.50.0.0/16"
 infra_subnet_prefix             = "10.50.1.0/26"
 jumpbox_subnet_prefix           = "10.50.2.0/24"
@@ -38,3 +54,4 @@ existing_log_analytics_workspace_id        = ""
 tags = {
   environment = "dev"
 }
+
