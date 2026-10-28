@@ -15,13 +15,16 @@ For a single local command that performs both phases, use `scripts\deploy.ps1`.
 
 ![Spoke architecture diagram](spoke-architecture.png)
 
-### Terraform (AVM) spoke architecture
+### Terraform (AVM) spoke architecture and request flow
 
-The diagram below reflects the Terraform deployment path, including the
-Content Understanding model deployments, the Outlook mailbox permission
-grant, and the automated workflow package publish added to
-`deploy-terraform.yml`. The editable source is
-[`spoke-architecture.excalidraw`](spoke-architecture.excalidraw).
+The diagram below reflects the Terraform deployment path (spoke VNet,
+subnets, Content Understanding model deployments, Outlook mailbox
+permission grant) and, below it, the actual request/data flow:
+`ProcessOutlookInvoiceRecreated` polls the configured Outlook mailbox,
+uploads matching attachments to the `documents` container, which triggers
+`ProcessDocument` to analyze the file via the Content Understanding
+analyzer and write the result to the `results` container. The editable
+source is [`spoke-architecture.excalidraw`](spoke-architecture.excalidraw).
 
 ![Terraform spoke architecture diagram](spoke-architecture-new.png)
 
