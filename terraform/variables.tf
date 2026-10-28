@@ -108,6 +108,12 @@ variable "logic_app_sku" {
   }
 }
 
+variable "service_plan_name_override" {
+  description = "Optional explicit App Service plan name when Terraform creates one."
+  type        = string
+  default     = ""
+}
+
 variable "existing_service_plan_id" {
   description = "Existing App Service plan resource ID. When set, Terraform reuses it instead of creating a new plan."
   type        = string

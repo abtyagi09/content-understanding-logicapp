@@ -69,7 +69,7 @@
             "type": "Http",
             "inputs": {
               "method": "GET",
-              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', items('For_each_email')?['id'], '/attachments?$select=id,name,contentType,size,isInline,contentBytes')}",
+              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']), '/attachments?$select=id,name,contentType,size,isInline,contentBytes')}",
               "authentication": {
                 "type": "ManagedServiceIdentity",
                 "audience": "https://graph.microsoft.com/"
@@ -88,7 +88,7 @@
             "actions": {
               "If_invoice_attachment": {
                 "type": "If",
-                "expression": "@and(equals(items('For_each_attachment')?['isInline'], false), or(contains(toLower(items('For_each_attachment')?['name']), 'invoice'), endsWith(toLower(items('For_each_attachment')?['name']), '.pdf')))",
+                "expression": "@and(equals(items('For_each_attachment')?['isInline'], false), not(empty(items('For_each_attachment')?['contentBytes'])), or(contains(toLower(string(coalesce(items('For_each_attachment')?['name'], ''))), 'invoice'), endsWith(toLower(string(coalesce(items('For_each_attachment')?['name'], ''))), '.pdf'), equals(toLower(string(coalesce(items('For_each_attachment')?['contentType'], ''))), 'application/pdf')))",
                 "actions": {
                   "Reset_analysis_status": {
                     "type": "SetVariable",
@@ -255,7 +255,7 @@
                     "type": "Http",
                     "inputs": {
                       "method": "PUT",
-                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/outlook-', items('For_each_email')?['id'], '-', items('For_each_attachment')?['name'], '.json')}",
+                      "uri": "@{concat(appsetting('AZURE_STORAGE_BLOB_ENDPOINT'), '/', appsetting('AZURE_STORAGE_RESULTS_CONTAINER_NAME'), '/outlook-', items('For_each_email')?['id'], '-', string(coalesce(items('For_each_attachment')?['name'], 'attachment.bin')), '.json')}",
                       "headers": {
                         "Content-Type": "application/json",
                         "x-ms-blob-type": "BlockBlob",
@@ -298,7 +298,7 @@
             "type": "Http",
             "inputs": {
               "method": "PATCH",
-              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', items('For_each_email')?['id'])}",
+              "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', appsetting('OUTLOOK_MAILBOX_USER'), '/messages/', uriComponent(items('For_each_email')?['id']))}",
               "headers": {
                 "Content-Type": "application/json"
               },
